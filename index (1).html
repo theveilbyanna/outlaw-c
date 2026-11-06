@@ -1,0 +1,776 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style><title>Outlaw Cut Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Free video and image resizer plus photo-to-video maker with AI voice, voiceover, music, sound effects and captions. Works in your browser; files stay on your device.">
+<meta name="theme-color" content="#141016">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: one phone-width column. Video Maker keeps a sticky preview monitor on top; the edit steps stack below in the order you work. */
+:root{
+  --ink:#141016; --panel:#1e1820; --panel-2:#2a222c; --line:#3d3240;
+  --bone:#efe5d8; --dim:#ab9ca8; --rose:#ff5c8a; --brass:#e3b55a; --ok:#73d6a0; --bad:#ff806f;
+  --display:'Bungee','Arial Black',Impact,sans-serif;
+  --body:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html{background:var(--ink)}
+body{background:var(--ink);color:var(--bone);font:16px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 64px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+.wrap{max-width:760px;margin:0 auto;display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:8px 16px;padding-top:6px}
+h1{font:400 clamp(30px,9vw,46px)/1 var(--display);margin:0;letter-spacing:.01em;text-wrap:balance}
+h1 span{color:var(--rose)}
+.tag{color:var(--dim);margin:4px 0 0;max-width:60ch}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--panel);padding:6px;border-radius:14px;border:1px solid var(--line)}
+.tabs button{min-height:48px;border:0;border-radius:10px;background:transparent;color:var(--dim);font:800 16px var(--body);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--rose);color:var(--ink)}
+.monitor{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ink);padding-block:8px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+.monitor canvas{display:block;margin:0 auto;max-width:100%;max-height:36vh;width:auto;height:auto;background:#000;border-radius:8px;border:1px solid var(--line)}
+.transport{display:flex;align-items:center;gap:10px}
+.transport input[type=range]{flex:1;min-width:0}
+.time{font:500 13px var(--mono);color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:12px;min-width:0}
+.step h2{margin:0;font:400 17px/1.2 var(--display);color:var(--brass);letter-spacing:.03em;display:flex;gap:10px;align-items:baseline}
+.step h2 b{font:500 13px var(--mono);color:var(--dim)}
+.hint{margin:0;color:var(--dim);font-size:14px;max-width:62ch}
+.hint a,.note a{color:var(--brass)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.field{display:grid;gap:4px;min-width:0}
+label,.lbl{font:600 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+input[type=text],input[type=number],input[type=password],input[type=url],select,textarea{width:100%;box-sizing:border-box;background:var(--panel-2);color:var(--bone);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:16px var(--body);min-height:44px}
+textarea{resize:vertical;min-height:64px}
+input[type=color]{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);padding:2px}
+input[type=range]{accent-color:var(--rose);width:100%}
+input[type=checkbox]{accent-color:var(--rose);width:20px;height:20px}
+.check{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--bone);text-transform:none;letter-spacing:0;font-weight:600}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--bone);font:700 15px var(--body);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--dim)}
+.btn.primary{background:var(--rose);border-color:var(--rose);color:var(--ink);font-weight:800}
+.btn.big{min-height:54px;font-size:17px;width:100%;justify-content:center}
+.btn.sm{min-height:36px;padding:0 10px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.picker{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:18px;text-align:center;display:grid;gap:8px;justify-items:center;color:var(--dim)}
+.scenes{display:grid;gap:12px}
+.scene{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.scene img{width:76px;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:#000;max-width:100%}
+.scene .body{display:grid;gap:10px;min-width:0}
+.scene .top{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+.scene .name{font:400 14px var(--display);color:var(--bone)}
+.pill{font:500 11px var(--mono);padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--dim);text-transform:uppercase}
+.pill.ex{color:var(--brass);border-color:var(--brass)}
+.pill.ok{color:var(--ok);border-color:var(--ok)}
+.status{font-size:13px;color:var(--dim)}
+.status.err{color:var(--bad)}
+.status.good{color:var(--ok)}
+.empty{color:var(--dim);margin:0}
+.total{font:500 13px var(--mono);color:var(--dim);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.note{background:var(--panel-2);border-left:3px solid var(--brass);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--bone);margin:0}
+.result{display:grid;gap:8px}
+.result video,.result img{max-width:100%;max-height:50vh;border-radius:10px;background:#000;justify-self:center}
+.rprev{display:block;margin:0 auto;max-width:100%;max-height:42vh;width:auto;height:auto;background:#000;border-radius:8px;border:1px solid var(--line)}
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(20,16,22,.94);display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.overlay .box{max-width:420px;width:100%;display:grid;gap:14px;text-align:center}
+.bar{height:10px;background:var(--panel-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--rose)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--bone);color:var(--ink);padding:10px 16px;border-radius:10px;font-weight:700;max-width:90vw;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.install{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--panel);border:1px solid var(--brass);border-radius:14px;padding:12px 14px}
+footer{color:var(--dim);font-size:13px;text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>OUTLAW <span>CUT</span></h1>
+      <p class="tag">Free resizer and photo-to-video maker. Voice, music, sound effects and captions in one place. Your files never leave your device.</p>
+    </div>
+  </header>
+
+  <div class="install" id="installBar" hidden>
+    <span>Put Outlaw Cut on your home screen like an app.</span>
+    <button class="btn primary sm" id="installBtn">Install app</button>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabMaker" aria-selected="true" aria-controls="maker">Video Maker</button>
+    <button role="tab" id="tabResize" aria-selected="false" aria-controls="resizer">Resizer</button>
+  </div>
+
+  <!-- ================= VIDEO MAKER ================= -->
+  <section id="maker" role="tabpanel" aria-labelledby="tabMaker" class="wrap" style="gap:16px">
+    <div class="monitor">
+      <canvas id="stage" width="1080" height="1920" aria-label="Video preview"></canvas>
+      <div class="transport">
+        <button class="btn primary sm" id="playBtn">▶ Play</button>
+        <input type="range" id="scrub" min="0" max="10" step="0.01" value="0.6" aria-label="Preview position">
+        <span class="time" id="timeOut">0:00 / 0:00</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <h2><b>01</b>Size</h2>
+      <div class="grid2">
+        <div class="field"><label for="vmPreset">Post type</label><select id="vmPreset"></select></div>
+        <div class="field"><label for="vmFit">Photo fit</label>
+          <select id="vmFit"><option value="fill">Fill the frame (crop)</option><option value="blur">Show whole photo, blurred edges</option></select></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <h2><b>02</b>Scenes</h2>
+      <p class="hint">Add photos or short clips. Each one becomes a scene. Set its length, motion, text, sound effect and voice line.</p>
+      <div class="drop">
+        <span>Photos and video clips</span>
+        <button type="button" class="btn primary" data-pick="addMedia">+ Add photos / clips</button><input type="file" class="picker" id="addMedia" accept="image/*,video/*" multiple tabindex="-1" aria-label="Add photos or clips">
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <span class="total" id="totalOut"></span>
+        <button class="btn sm" id="clearScenes">Clear all</button>
+      </div>
+      <div class="scenes" id="scenes"></div>
+    </div>
+
+    <div class="step">
+      <h2><b>03</b>Voice</h2>
+      <p class="hint">Type a voice line on any scene and tap <b>Make voice</b>. The scene stretches to fit the line. Or record or upload one voiceover for the whole video.</p>
+      <div class="grid2">
+        <div class="field"><label for="provider">AI voice service</label>
+          <select id="provider"><option value="gemini">Google Gemini (free key)</option><option value="eleven">ElevenLabs</option></select></div>
+        <div class="field"><label for="apiKey">API key</label>
+          <input type="password" id="apiKey" placeholder="Paste your key" autocomplete="off"></div>
+      </div>
+      <p class="hint" id="keyHelp"></p>
+      <div class="grid2">
+        <div class="field" id="gVoiceWrap"><label for="gVoice">Voice</label><select id="gVoice"></select></div>
+        <div class="field" id="eVoiceWrap" hidden><label for="eVoice">ElevenLabs voice ID</label><input type="text" id="eVoice" value="21m00Tcm4TlvDq8ikWAM"></div>
+        <div class="field"><label for="vStyle">How it should sound</label><input type="text" id="vStyle" placeholder="e.g. slow, spooky whisper"></div>
+      </div>
+      <div class="row"><button class="btn" id="makeAll">Make all scene voices</button><span class="status" id="allStatus"></span></div>
+      <p class="note" id="hostNote" hidden></p>
+      <div class="lbl" style="margin-top:6px">One voiceover for the whole video</div>
+      <div class="row">
+        <button class="btn" id="micBtn">● Record</button>
+        <button type="button" class="btn" data-pick="narrFile">Upload voiceover</button><input type="file" class="picker" id="narrFile" accept="audio/*" tabindex="-1" aria-label="Upload voiceover">
+        <button class="btn sm" id="narrPlay" disabled>▶</button>
+        <button class="btn sm" id="narrDel" disabled>Remove</button>
+      </div>
+      <span class="status" id="narrStatus">No voiceover yet.</span>
+      <label class="check"><input type="checkbox" id="fitNarr" checked> Make the video as long as the voiceover</label>
+    </div>
+
+    <div class="step">
+      <h2><b>04</b>Music &amp; sound</h2>
+      <div class="grid2">
+        <div class="field"><label for="musicSel">Background music</label>
+          <select id="musicSel"><option value="none">None</option><option value="drone">Built-in: dark drone</option><option value="pulse">Built-in: pulse beat</option><option value="heart">Built-in: heartbeat</option><option value="upload">My own song…</option></select></div>
+        <div class="field" id="musicFileWrap" hidden><label for="musicFile">Song file</label><input type="file" id="musicFile" accept="audio/*"></div>
+      </div>
+      <span class="status" id="musicStatus"></span>
+      <label class="check"><input type="checkbox" id="duck" checked> Lower the music while the voice talks</label>
+      <div class="grid2">
+        <div class="field"><label for="volVoice">Voice volume</label><input type="range" id="volVoice" min="0" max="1.5" step="0.05" value="1"></div>
+        <div class="field"><label for="volMusic">Music volume</label><input type="range" id="volMusic" min="0" max="1" step="0.05" value="0.35"></div>
+        <div class="field"><label for="volSfx">Sound effects volume</label><input type="range" id="volSfx" min="0" max="1.5" step="0.05" value="0.8"></div>
+      </div>
+      <div class="lbl">Hear the sound effects</div>
+      <div class="chips" id="sfxChips"></div>
+    </div>
+
+    <div class="step">
+      <h2><b>05</b>Text style</h2>
+      <div class="grid2">
+        <div class="field"><label for="capStyle">Caption look</label>
+          <select id="capStyle"><option value="bold">White, black outline</option><option value="pop">Yellow pop</option><option value="box">White on black box</option><option value="sign">Neon sign</option></select></div>
+        <div class="field"><label for="capPos">Position</label>
+          <select id="capPos"><option value="bottom">Lower third</option><option value="middle">Middle</option><option value="top">Top</option></select></div>
+        <div class="field"><label for="capAnim">Animation</label>
+          <select id="capAnim"><option value="words">Word by word</option><option value="all">All at once</option></select></div>
+        <div class="field"><label for="capSize">Text size</label><input type="range" id="capSize" min="40" max="130" step="2" value="78"></div>
+      </div>
+      <div class="field"><label for="mark">Watermark (your @ or link)</label><input type="text" id="mark" placeholder="e.g. theveil.quest"></div>
+    </div>
+
+    <div class="step">
+      <h2><b>06</b>Export</h2>
+      <div class="grid2">
+        <div class="field"><label for="fps">Frame rate</label><select id="fps"><option>30</option><option>24</option></select></div>
+        <div class="field"><label for="quality">Quality</label><select id="quality"><option value="8000000">High</option><option value="4500000">Medium (smaller file)</option><option value="12000000">Max</option></select></div>
+      </div>
+      <p class="hint">Export plays the video once while it records, so it takes as long as the video. Keep this screen open and on.</p>
+      <button class="btn primary big" id="exportBtn">Export video</button>
+      <div class="result" id="vmResult" hidden></div>
+    </div>
+
+    <div class="step">
+      <h2><b>07</b>Post caption</h2>
+      <p class="hint">Writes an SEO caption with your link and hashtags from your scene text. Uses the same free Gemini key.</p>
+      <div class="grid2">
+        <div class="field"><label for="pcTopic">What's the video about?</label><input type="text" id="pcTopic" placeholder="e.g. new tarot deck drop"></div>
+        <div class="field"><label for="pcLink">Link</label><input type="url" id="pcLink" placeholder="https://theveil.quest"></div>
+        <div class="field"><label for="pcPlat">Platform</label><select id="pcPlat"><option>TikTok</option><option>Instagram Reels</option><option>YouTube Shorts</option><option>Pinterest</option><option>Facebook</option></select></div>
+      </div>
+      <button class="btn" id="pcGo">Write caption + hashtags</button>
+      <textarea id="pcOut" rows="7" placeholder="Your caption shows up here." aria-label="Post caption"></textarea>
+      <div class="row"><button class="btn primary" id="pcCopy">Copy caption</button><span class="status" id="pcStatus"></span></div>
+    </div>
+  </section>
+
+  <!-- ================= RESIZER ================= -->
+  <section id="resizer" role="tabpanel" aria-labelledby="tabResize" class="wrap" style="gap:16px" hidden>
+    <div class="step">
+      <h2><b>01</b>Pick files</h2>
+      <div class="drop">
+        <span>Several photos, or one video</span>
+        <button type="button" class="btn primary" data-pick="rzFiles">Choose photos or a video</button><input type="file" class="picker" id="rzFiles" accept="image/*,video/*" multiple tabindex="-1" aria-label="Choose files to resize">
+        <span class="status" id="rzInfo">Showing an example until you pick files.</span>
+      </div>
+    </div>
+    <div class="step">
+      <h2><b>02</b>New size</h2>
+      <div class="grid2">
+        <div class="field"><label for="rzPreset">Size</label><select id="rzPreset"></select></div>
+        <div class="field"><label for="rzFit">Fit</label>
+          <select id="rzFit"><option value="fill">Fill (crop edges)</option><option value="blur">Whole picture, blurred edges</option><option value="color">Whole picture, color edges</option><option value="stretch">Stretch</option></select></div>
+        <div class="field" id="rzWWrap" hidden><label for="rzW">Width px</label><input type="number" id="rzW" value="1080" min="16" max="8000"></div>
+        <div class="field" id="rzHWrap" hidden><label for="rzH">Height px</label><input type="number" id="rzH" value="1920" min="16" max="8000"></div>
+        <div class="field" id="rzBgWrap" hidden><label for="rzBg">Edge color</label><input type="color" id="rzBg" value="#000000"></div>
+      </div>
+      <div class="grid2" id="rzImgOpts">
+        <div class="field"><label for="rzFmt">Save as</label><select id="rzFmt"><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WEBP</option></select></div>
+        <div class="field"><label for="rzQ">Quality</label><input type="range" id="rzQ" min="0.5" max="1" step="0.01" value="0.92"></div>
+      </div>
+      <div class="grid2" id="rzVidOpts" hidden>
+        <div class="field"><label for="rzA">Start at (sec)</label><input type="number" id="rzA" value="0" min="0" step="0.1"></div>
+        <div class="field"><label for="rzB">End at (sec)</label><input type="number" id="rzB" value="0" min="0" step="0.1"></div>
+        <label class="check"><input type="checkbox" id="rzSound" checked> Keep sound</label>
+      </div>
+    </div>
+    <div class="step">
+      <h2><b>03</b>Preview &amp; save</h2>
+      <canvas id="rzPrev" class="rprev" width="1080" height="1920" aria-label="Resize preview"></canvas>
+      <button class="btn primary big" id="rzGo">Resize &amp; save</button>
+      <button class="btn" id="rzToMaker">Send photos to Video Maker</button>
+      <div class="result" id="rzResult" hidden></div>
+    </div>
+  </section>
+
+  <footer>Outlaw Cut · a Digital Outlaw tool · everything runs on your device</footer>
+</div>
+
+<div class="overlay" id="busy" hidden>
+  <div class="box">
+    <div style="font:400 20px var(--display)" id="busyTitle">Recording…</div>
+    <div class="bar"><i id="busyBar"></i></div>
+    <div class="time" id="busyTime"></div>
+    <p class="hint" style="margin:0 auto">Keep this screen open until it finishes.</p>
+    <button class="btn" id="busyCancel">Cancel</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const fmtT=s=>{s=Math.max(0,s);const m=Math.floor(s/60),x=Math.floor(s%60);return m+':'+String(x).padStart(2,'0')};
+const store={get(k){try{return localStorage.getItem(k)||''}catch(e){return ''}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const ON_HOST=/vercel\.app$|outlaw/i.test(location.hostname);
+const HOSTED_URL='https://outlaw-cut.vercel.app';
+
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200)}
+
+/* ---------- audio core ---------- */
+let ac=null,master=null,mix=null;
+function audio(){
+  if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.connect(ac.destination);mix=ac.createGain();mix.connect(master)}
+  if(ac.state==='suspended')ac.resume();
+  return ac;
+}
+function synth(sec,fn){const sr=ac.sampleRate,n=Math.floor(sec*sr),b=ac.createBuffer(1,n,sr),d=b.getChannelData(0);fn(d,sr,n);return b}
+const rnd=()=>Math.random()*2-1;
+const SFX={
+  whoosh:['Whoosh',()=>synth(1.1,(d,sr,n)=>{let y=0;for(let i=0;i<n;i++){const t=i/n,env=Math.pow(Math.sin(Math.PI*t),2),a=.02+.3*env;y+=a*(rnd()-y);d[i]=y*env*2.6}})],
+  boom:['Boom',()=>synth(1.8,(d,sr,n)=>{let ph=0;for(let i=0;i<n;i++){const t=i/sr,f=38+95*Math.exp(-t*7);ph+=2*Math.PI*f/sr;d[i]=Math.sin(ph)*Math.exp(-t*2.2)*.95+rnd()*Math.exp(-t*50)*.5}})],
+  riser:['Riser',()=>synth(1.8,(d,sr,n)=>{let ph=0,lp=0;for(let i=0;i<n;i++){const t=i/n,f=180+1500*t*t;ph+=2*Math.PI*f/sr;const x=rnd();lp+=.1*(x-lp);d[i]=(Math.sin(ph)*.35+(x-lp)*.5)*t*t}})],
+  glitch:['Glitch',()=>synth(.55,(d,sr,n)=>{const seg=Math.floor(sr*.03);let mode=0,f=400,ph=0;for(let i=0;i<n;i++){if(i%seg===0){mode=Math.floor(Math.random()*3);f=200+Math.random()*1600}ph+=f/sr;d[i]=mode===0?((ph%1)<.5?.45:-.45):mode===1?rnd()*.4:0}})],
+  heart:['Heartbeat',()=>synth(1,(d,sr,n)=>{for(let i=0;i<n;i++){const t=i/sr;let s=0;[0,.28].forEach((t0,k)=>{if(t>=t0){const u=t-t0;s+=(Math.sin(2*Math.PI*52*u)+.5*Math.sin(2*Math.PI*78*u))*Math.exp(-u*14)*(k?0.7:1)}});d[i]=s*.75}})],
+  chime:['Chime',()=>synth(2.6,(d,sr,n)=>{for(let i=0;i<n;i++){const t=i/sr;d[i]=(Math.sin(2*Math.PI*880*t)+.6*Math.sin(2*Math.PI*1318.5*t)+.4*Math.sin(2*Math.PI*1760*t))*Math.exp(-t*2.6)*.3*Math.min(1,t*200)}})],
+  pop:['Pop',()=>synth(.18,(d,sr,n)=>{let ph=0;for(let i=0;i<n;i++){const t=i/sr,f=200+800*Math.exp(-t*40);ph+=2*Math.PI*f/sr;d[i]=Math.sin(ph)*Math.exp(-t*28)*.8}})],
+  snap:['Camera snap',()=>synth(.25,(d,sr,n)=>{for(let i=0;i<n;i++){const t=i/sr;d[i]=rnd()*(Math.exp(-t*90)+(t>.09?Math.exp(-(t-.09)*70)*.7:0))*.7}})]
+};
+const sfxCache={};
+function sfxBuf(k){audio();if(!sfxCache[k])sfxCache[k]=SFX[k][1]();return sfxCache[k]}
+const BEDS={
+  drone:()=>synth(8,(d,sr,n)=>{let lp=0;for(let i=0;i<n;i++){const t=i/sr,l=.6+.4*Math.sin(2*Math.PI*.25*t);const x=rnd();lp+=.02*(x-lp);d[i]=(Math.sin(2*Math.PI*55*t)*.5+Math.sin(2*Math.PI*82.5*t)*.25*l+Math.sin(2*Math.PI*110*t)*.15*(1-l)+lp*.6)*.55}}),
+  pulse:()=>synth(8,(d,sr,n)=>{let lp=0;for(let i=0;i<n;i++){const t=i/sr,b=t%.5,h=(t+.25)%.5;let s=0;s+=Math.sin(2*Math.PI*(45+70*Math.exp(-b*30))*b)*Math.exp(-b*9)*.8;const x=rnd();lp+=.5*(x-lp);s+=(x-lp)*Math.exp(-h*60)*.25;s+=Math.sin(2*Math.PI*55*t)*.12*Math.exp(-b*3);d[i]=s*.8}}),
+  heart:()=>synth(8,(d,sr,n)=>{for(let i=0;i<n;i++){const t=i/sr,b=t%1;let s=0;[0,.28].forEach((t0,k)=>{if(b>=t0){const u=b-t0;s+=(Math.sin(2*Math.PI*50*u)+.5*Math.sin(2*Math.PI*75*u))*Math.exp(-u*12)*(k?.6:1)}});s+=Math.sin(2*Math.PI*41.25*t)*.08;d[i]=s*.7}})
+};
+
+/* ---------- saving files ---------- */
+let dlCap; // undefined = unknown, null = none
+async function saveBlob(blob,name){
+  if(window.claude&&window.claude.use){
+    try{ if(dlCap===undefined)dlCap=await window.claude.use('downloads');
+      if(dlCap){await dlCap.save({filename:name,data:blob});toast('Saved '+name);return true}
+    }catch(e){ if(e&&e.code==='declined'){toast('Save cancelled');return false} if(e&&e.code==='rate_limited'){await sleep(1500);return saveBlob(blob,name)} }
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000);toast('Saved '+name);return true;
+}
+function pickMime(){const list=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1,mp4a','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  if(!window.MediaRecorder)return null;for(const m of list){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''}
+let wake=null;async function keepAwake(on){try{if(on&&navigator.wakeLock)wake=await navigator.wakeLock.request('screen');else if(wake){await wake.release();wake=null}}catch(e){}}
+
+/* ---------- presets ---------- */
+const PRESETS=[
+ ['reel','Reel / TikTok / Shorts / Story — 1080×1920',1080,1920],
+ ['ig45','Instagram post 4:5 — 1080×1350',1080,1350],
+ ['square','Square post — 1080×1080',1080,1080],
+ ['pin','Pinterest pin 2:3 — 1000×1500',1000,1500],
+ ['yt','YouTube / Facebook 16:9 — 1920×1080',1920,1080],
+ ['thumb','YouTube thumbnail — 1280×720',1280,720],
+ ['x','X / Twitter post — 1600×900',1600,900],
+ ['fbcover','Facebook cover — 1640×624',1640,624],
+ ['custom','Custom size',0,0]
+];
+function fillPresets(sel,keys){sel.innerHTML='';PRESETS.filter(p=>!keys||keys.includes(p[0])).forEach(p=>{const o=document.createElement('option');o.value=p[0];o.textContent=p[1];sel.appendChild(o)})}
+
+/* ---------- drawing helpers ---------- */
+const bgc=document.createElement('canvas');const bgx=bgc.getContext('2d');
+function dims(src){return src.videoWidth?[src.videoWidth,src.videoHeight]:[src.naturalWidth||src.width,src.naturalHeight||src.height]}
+function blurBg(ctx,W,H,src,sw,sh){
+  bgc.width=Math.max(8,Math.round(W/36));bgc.height=Math.max(8,Math.round(H/36));
+  const s=Math.max(bgc.width/sw,bgc.height/sh);bgx.drawImage(src,(bgc.width-sw*s)/2,(bgc.height-sh*s)/2,sw*s,sh*s);
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(bgc,0,0,W,H);ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(0,0,W,H);
+}
+function drawFit(ctx,W,H,src,fit,bg,sc,ox,oy){
+  const [sw,sh]=dims(src);if(!sw||!sh)return;sc=sc||1;ox=ox||0;oy=oy||0;
+  if(fit==='stretch'){ctx.drawImage(src,0,0,W,H);return}
+  let base;
+  if(fit==='fill')base=Math.max(W/sw,H/sh);
+  else{ if(fit==='blur')blurBg(ctx,W,H,src,sw,sh);else{ctx.fillStyle=bg||'#000';ctx.fillRect(0,0,W,H)} base=Math.min(W/sw,H/sh)}
+  const dw=sw*base*sc,dh=sh*base*sc;ctx.drawImage(src,(W-dw)/2+ox*W,(H-dh)/2+oy*H,dw,dh);
+}
+function wrap(ctx,words,maxW){const lines=[];let line='';for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w}else line=t}if(line)lines.push(line);return lines}
+
+/* ================= VIDEO MAKER ================= */
+const S={w:1080,h:1920,fit:'fill',scenes:[],narr:null,fitNarr:true,music:null,musicSel:'none',duck:true,
+  vVoice:1,vMusic:.35,vSfx:.8,capStyle:'bold',capPos:'bottom',capAnim:'words',capSize:78,mark:'',fps:30,bitrate:8e6};
+let uid=0;
+const stage=$('#stage'),sctx=stage.getContext('2d');
+const MOTIONS=[['zoomin','Slow zoom in'],['zoomout','Slow zoom out'],['panl','Pan left'],['panr','Pan right'],['pulse','Pulse'],['still','Still']];
+const TRANS=[['fade','Fade'],['cut','Cut'],['flash','Flash'],['glitch','Glitch'],['slide','Slide']];
+
+function makeExample(i){
+  const c=document.createElement('canvas');c.width=1080;c.height=1920;const x=c.getContext('2d');
+  const pals=[['#2b0f2e','#ff5c8a'],['#0f1d2e','#e3b55a'],['#1a1a12','#73d6a0']][i%3];
+  const g=x.createLinearGradient(0,0,1080,1920);g.addColorStop(0,pals[0]);g.addColorStop(1,'#000');x.fillStyle=g;x.fillRect(0,0,1080,1920);
+  x.fillStyle=pals[1];x.globalAlpha=.85;x.beginPath();x.arc(540,760,260,0,Math.PI*2);x.fill();
+  x.globalAlpha=1;x.fillStyle=pals[0];x.beginPath();x.arc(640,700,230,0,Math.PI*2);x.fill();
+  x.globalAlpha=.25;x.fillStyle='#fff';for(let k=0;k<60;k++){x.fillRect(Math.random()*1080,Math.random()*1300,3,3)}
+  x.globalAlpha=1;x.fillStyle='rgba(255,255,255,.6)';x.font='600 40px Barlow, sans-serif';x.textAlign='center';x.fillText('EXAMPLE '+(i+1),540,140);
+  return c;
+}
+function addScene(o){S.scenes.push(Object.assign({id:++uid,kind:'image',dur:3,text:'',motion:'zoomin',trans:'fade',sfx:'none',voiceText:'',voiceBuf:null,clipSound:true,example:false},o))}
+function seedExamples(){
+  const lines=[['Swap these for your own photos','whoosh','zoomin','My first scene'],['Type a voice line and tap Make voice','chime','panl','Every scene can talk'],['Export and post it','boom','zoomout','Then hit export']];
+  lines.forEach((l,i)=>{const c=makeExample(i);addScene({src:c,thumb:c.toDataURL('image/jpeg',.5),text:l[0],sfx:l[1],motion:l[2],voiceText:l[3],example:true,name:'Example '+(i+1)})});
+}
+
+function timeline(){
+  let t=0;const items=[];
+  S.scenes.forEach(s=>{let len=Math.max(.5,+s.dur||3);if(s.voiceBuf)len=Math.max(len,s.voiceBuf.duration+.5);items.push({s,start:t,len});t+=len});
+  if(S.narr&&S.fitNarr&&items.length&&S.narr.duration>t){items[items.length-1].len+=S.narr.duration-t;t=S.narr.duration}
+  return {items,total:t};
+}
+function motion(m,p){const e=p;switch(m){
+  case 'zoomin':return[1+.14*e,0,0];case 'zoomout':return[1.14-.14*e,0,0];
+  case 'panl':return[1.16,.06-.12*e,0];case 'panr':return[1.16,-.06+.12*e,0];
+  case 'pulse':return[1.03+.03*Math.sin(p*Math.PI*6),0,0];default:return[1,0,0]}}
+function drawScene(ctx,W,H,it,t){
+  const p=Math.min(1,Math.max(0,(t-it.start)/it.len));const s=it.s;
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  const [sc,ox,oy]=motion(s.motion,p);
+  drawFit(ctx,W,H,s.src,S.fit,'#000',sc,ox,oy);
+  if(s.text)drawCaption(ctx,W,H,s.text,p);
+}
+function drawCaption(ctx,W,H,text,p){
+  const k=W/1080,size=Math.round(S.capSize*k*(W>H?.8:1)),st=S.capStyle;
+  let words=text.trim().split(/\s+/).filter(Boolean);if(!words.length)return;
+  if(S.capAnim==='words'){const n=Math.max(1,Math.ceil(Math.min(1,p/.55)*words.length));words=words.slice(0,n)}
+  ctx.font=st==='sign'?size+'px Bungee, Impact, sans-serif':'800 '+size+'px Barlow, "Arial Black", sans-serif';
+  const lines=wrap(ctx,words,W*.84),lh=size*1.16,th=lines.length*lh;
+  let y0=S.capPos==='top'?H*.12:S.capPos==='middle'?H*.5-th/2:H*.82-th;
+  ctx.textAlign='center';ctx.textBaseline='top';
+  if(st==='box'){const pad=size*.35,mw=Math.max(...lines.map(l=>ctx.measureText(l).width));ctx.fillStyle='rgba(0,0,0,.75)';
+    const x=W/2-mw/2-pad,y=y0-pad*.7,w=mw+pad*2,h=th+pad*1.2;if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,size*.3);ctx.fill()}else ctx.fillRect(x,y,w,h)}
+  lines.forEach((ln,i)=>{const y=y0+i*lh;
+    if(st==='sign'){ctx.shadowColor='#ff5c8a';ctx.shadowBlur=size*.5}
+    if(st!=='box'){ctx.lineJoin='round';ctx.lineWidth=size*.17;ctx.strokeStyle='#000';ctx.strokeText(ln,W/2,y)}
+    ctx.fillStyle=st==='pop'?'#ffe14d':st==='sign'?'#ffd1de':'#fff';ctx.fillText(ln,W/2,y);ctx.shadowBlur=0;ctx.shadowColor='transparent'});
+}
+function drawFrame(ctx,W,H,t,tl){
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  if(!tl.items.length){ctx.fillStyle='#ab9ca8';ctx.font='600 '+Math.round(W/22)+'px Barlow, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('Add photos or clips to start',W/2,H/2);return}
+  let i=0;for(let j=0;j<tl.items.length;j++)if(tl.items[j].start<=t)i=j;
+  const it=tl.items[i],inT=t-it.start,TR=.45;
+  if(i>0&&inT<TR&&it.s.trans!=='cut'){
+    const k=inT/TR,e=k*k*(3-2*k),prev=tl.items[i-1],tr=it.s.trans;
+    if(tr==='fade'){drawScene(ctx,W,H,prev,prev.start+prev.len);ctx.globalAlpha=e;drawScene(ctx,W,H,it,t);ctx.globalAlpha=1}
+    else if(tr==='slide'){ctx.save();ctx.translate(-W*e,0);drawScene(ctx,W,H,prev,prev.start+prev.len);ctx.restore();ctx.save();ctx.translate(W*(1-e),0);drawScene(ctx,W,H,it,t);ctx.restore()}
+    else{drawScene(ctx,W,H,it,t);
+      if(tr==='flash'){ctx.fillStyle='rgba(255,255,255,'+(1-e)+')';ctx.fillRect(0,0,W,H)}
+      if(tr==='glitch'){const n=10;for(let j=0;j<n;j++){const sy=Math.random()*H,h=Math.random()*H*.07+4,dx=(Math.random()-.5)*W*.2*(1-e);ctx.drawImage(ctx.canvas,0,sy,W,h,dx,sy,W,h)}
+        ctx.fillStyle='rgba(255,92,138,'+(.25*(1-e))+')';ctx.fillRect(0,0,W,H)}}
+  }else drawScene(ctx,W,H,it,t);
+  if(S.mark){const k=W/1080;ctx.font='700 '+Math.round(32*k)+'px Barlow, sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.lineWidth=5*k;ctx.strokeStyle='rgba(0,0,0,.6)';ctx.strokeText(S.mark,W/2,H-46*k);ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillText(S.mark,W/2,H-46*k)}
+}
+
+/* video clips */
+function ensureClipNodes(){audio();S.scenes.forEach(s=>{if(s.kind==='video'&&!s._node){try{s._node=ac.createMediaElementSource(s.src);s._node.connect(mix)}catch(e){}}})}
+function syncClips(t,live,tl){
+  tl.items.forEach(it=>{const s=it.s;if(s.kind!=='video')return;const el=s.src,inside=t>=it.start&&t<it.start+it.len;
+    if(live){ if(inside){ if(!s._live){s._live=true;el.currentTime=0;el.muted=!s.clipSound;el.play().catch(()=>{})} } else if(s._live){s._live=false;el.pause()} }
+    else{ el.pause();s._live=false;if(inside){const target=Math.max(0,Math.min(t-it.start,(el.duration||0)-.05));if(Math.abs(el.currentTime-target)>.08)el.currentTime=target} }});
+}
+
+/* preview & playback */
+const scrub=$('#scrub');
+let redrawQ=false;
+function redraw(){if(redrawQ)return;redrawQ=true;requestAnimationFrame(()=>{redrawQ=false;if(playing)return;const tl=timeline();scrub.max=Math.max(.1,tl.total).toFixed(2);
+  const t=Math.min(+scrub.value,Math.max(0,tl.total-.01));syncClips(t,false,tl);drawFrame(sctx,S.w,S.h,t,tl);$('#timeOut').textContent=fmtT(t)+' / '+fmtT(tl.total)})}
+function updateTotal(){const tl=timeline();$('#totalOut').textContent='Total '+fmtT(tl.total)+' · '+S.scenes.length+' scene'+(S.scenes.length===1?'':'s')}
+
+let playing=null;
+function scheduleAudio(t0,tl){
+  const nodes=[];
+  function playBuf(buf,at,vol,loop,until){const src=ac.createBufferSource();src.buffer=buf;src.loop=!!loop;const g=ac.createGain();g.gain.value=vol;src.connect(g);g.connect(mix);src.start(at);if(until)src.stop(until);nodes.push(src);return g}
+  tl.items.forEach(it=>{
+    if(it.s.sfx&&it.s.sfx!=='none')playBuf(sfxBuf(it.s.sfx),t0+it.start,S.vSfx);
+    if(it.s.voiceBuf)playBuf(it.s.voiceBuf,t0+it.start+.2,S.vVoice);
+  });
+  if(S.narr)playBuf(S.narr,t0,S.vVoice);
+  if(S.music){const g=playBuf(S.music,t0,S.vMusic,true,t0+tl.total+.05);const gp=g.gain,low=S.vMusic*.3;gp.setValueAtTime(S.vMusic,t0);
+    if(S.duck){const spans=[];tl.items.forEach(it=>{if(it.s.voiceBuf)spans.push([it.start+.1,it.start+.2+it.s.voiceBuf.duration])});if(S.narr)spans.push([0,S.narr.duration]);
+      spans.forEach(([a,b])=>{gp.setTargetAtTime(low,t0+a,.08);gp.setTargetAtTime(S.vMusic,t0+b+.15,.25)})}
+    gp.setTargetAtTime(0,t0+Math.max(0,tl.total-1.4),.35)}
+  return nodes;
+}
+function startPlayback(onTick){
+  return new Promise(res=>{
+    audio();ensureClipNodes();const tl=timeline();if(!tl.items.length){res(false);return}
+    const t0=ac.currentTime+.2;playing={t0,tl,nodes:scheduleAudio(t0,tl),done:res,onTick};
+    $('#playBtn').textContent='■ Stop';
+    const loop=()=>{if(!playing)return;const t=ac.currentTime-playing.t0;
+      if(t>=tl.total){drawFrame(sctx,S.w,S.h,tl.total-.001,tl);stopPlayback(true);return}
+      const tt=Math.max(0,t);syncClips(tt,true,tl);drawFrame(sctx,S.w,S.h,tt,tl);scrub.value=tt;$('#timeOut').textContent=fmtT(tt)+' / '+fmtT(tl.total);
+      if(playing.onTick)playing.onTick(tt,tl.total);requestAnimationFrame(loop)};
+    requestAnimationFrame(loop);
+  });
+}
+function stopPlayback(finished){if(!playing)return;const p=playing;playing=null;p.nodes.forEach(n=>{try{n.stop()}catch(e){}});
+  S.scenes.forEach(s=>{if(s.kind==='video'){s.src.pause();s._live=false}});$('#playBtn').textContent='▶ Play';p.done(!!finished)}
+$('#playBtn').onclick=async()=>{if(playing){stopPlayback(false);redraw();return}await fontsReady;await startPlayback();scrub.value=0;redraw()};
+scrub.oninput=redraw;
+
+/* scenes UI */
+function opts(list,val){return list.map(([v,l])=>'<option value="'+v+'"'+(v===val?' selected':'')+'>'+l+'</option>').join('')}
+function sfxOpts(val){return '<option value="none">None</option>'+Object.keys(SFX).map(k=>'<option value="'+k+'"'+(k===val?' selected':'')+'>'+SFX[k][0]+'</option>').join('')}
+function renderScenes(){
+  const box=$('#scenes');box.innerHTML='';
+  if(!S.scenes.length){box.innerHTML='<p class="empty">No scenes yet. Tap “Add photos / clips”.</p>'}
+  S.scenes.forEach((s,i)=>{
+    const el=document.createElement('article');el.className='scene';const id='s'+s.id;
+    el.innerHTML='<img alt="Scene '+(i+1)+' thumbnail">'+
+    '<div class="body"><div class="top"><span class="name">Scene '+(i+1)+'</span><span class="row" style="gap:4px">'+
+      (s.example?'<span class="pill ex">example</span>':'')+(s.kind==='video'?'<span class="pill">clip</span>':'')+(s.voiceBuf?'<span class="pill ok">voice</span>':'')+'</span>'+
+      '<span class="row" style="gap:4px"><button class="btn sm" data-a="up" aria-label="Move scene up">↑</button><button class="btn sm" data-a="down" aria-label="Move scene down">↓</button><button class="btn sm" data-a="dup" aria-label="Duplicate scene">⧉</button><button class="btn sm" data-a="del" aria-label="Delete scene">✕</button></span></div>'+
+    '<div class="field"><label for="'+id+'t">On-screen text</label><textarea id="'+id+'t" rows="2" placeholder="Words shown on this scene"></textarea></div>'+
+    '<div class="grid2"><div class="field"><label for="'+id+'d">Seconds</label><input type="number" id="'+id+'d" min="0.5" max="120" step="0.5"></div>'+
+      '<div class="field"><label for="'+id+'m">Motion</label><select id="'+id+'m">'+opts(MOTIONS,s.motion)+'</select></div>'+
+      '<div class="field"><label for="'+id+'r">Transition in</label><select id="'+id+'r">'+opts(TRANS,s.trans)+'</select></div>'+
+      '<div class="field"><label for="'+id+'x">Sound effect</label><select id="'+id+'x">'+sfxOpts(s.sfx)+'</select></div></div>'+
+    (s.kind==='video'?'<label class="check"><input type="checkbox" id="'+id+'c"> Use the clip’s own sound</label>':'')+
+    '<div class="field"><label for="'+id+'v">Voice line</label><textarea id="'+id+'v" rows="2" placeholder="What the voice says on this scene"></textarea></div>'+
+    '<div class="row"><button class="btn sm" data-a="voice">Make voice</button><button class="btn sm" data-a="vplay"'+(s.voiceBuf?'':' disabled')+'>▶ Voice</button><button class="btn sm" data-a="vdel"'+(s.voiceBuf?'':' disabled')+'>Remove voice</button><span class="status" id="'+id+'st"></span></div></div>';
+    box.appendChild(el);
+    el.querySelector('img').src=s.thumb||'';
+    const q=sel=>el.querySelector(sel);
+    q('#'+id+'t').value=s.text;q('#'+id+'d').value=s.dur;q('#'+id+'v').value=s.voiceText;
+    q('#'+id+'t').oninput=e=>{s.text=e.target.value;jumpTo(s);redraw()};
+    q('#'+id+'d').oninput=e=>{s.dur=Math.max(.5,+e.target.value||3);updateTotal();redraw()};
+    q('#'+id+'m').onchange=e=>{s.motion=e.target.value;jumpTo(s);redraw()};
+    q('#'+id+'r').onchange=e=>{s.trans=e.target.value};
+    q('#'+id+'x').onchange=e=>{s.sfx=e.target.value;if(s.sfx!=='none')playOnce(sfxBuf(s.sfx),S.vSfx)};
+    q('#'+id+'v').oninput=e=>{s.voiceText=e.target.value};
+    if(s.kind==='video'){const c=q('#'+id+'c');c.checked=s.clipSound;c.onchange=e=>{s.clipSound=e.target.checked}}
+    el.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>sceneAction(b.dataset.a,s,i,q('#'+id+'st')));
+  });
+  updateTotal();redraw();
+}
+function jumpTo(s){if(playing)return;const tl=timeline();const it=tl.items.find(x=>x.s===s);if(it)scrub.value=Math.min(tl.total,it.start+it.len*.75)}
+let previewSrc=null;
+function playOnce(buf,vol){audio();if(previewSrc){try{previewSrc.stop()}catch(e){}}const s=ac.createBufferSource();s.buffer=buf;const g=ac.createGain();g.gain.value=vol;s.connect(g);g.connect(master);s.start();previewSrc=s}
+async function sceneAction(a,s,i,st){
+  const L=S.scenes;
+  if(a==='up'&&i>0){[L[i-1],L[i]]=[L[i],L[i-1]];renderScenes()}
+  else if(a==='down'&&i<L.length-1){[L[i+1],L[i]]=[L[i],L[i+1]];renderScenes()}
+  else if(a==='del'){L.splice(i,1);renderScenes()}
+  else if(a==='dup'){if(s.kind==='video'){toast('Clips can’t be duplicated. Add the file again.');return}const c=Object.assign({},s,{id:++uid});L.splice(i+1,0,c);renderScenes()}
+  else if(a==='vplay'&&s.voiceBuf)playOnce(s.voiceBuf,S.vVoice);
+  else if(a==='vdel'){s.voiceBuf=null;renderScenes()}
+  else if(a==='voice'){
+    if(!s.voiceText.trim()){st.textContent='Type a voice line first.';st.className='status err';return}
+    st.textContent='Making voice…';st.className='status';
+    try{s.voiceBuf=await tts(s.voiceText.trim());renderScenes();toast('Voice ready for scene '+(i+1));playOnce(s.voiceBuf,S.vVoice)}
+    catch(e){st.textContent=e.message;st.className='status err'}
+  }
+}
+async function addFiles(files){
+  audio();
+  const real=[...files];if(!real.length)return;
+  if(S.scenes.some(s=>s.example)){S.scenes=S.scenes.filter(s=>!s.example)}
+  for(const f of real){
+    if(f.type.startsWith('video')){
+      const v=document.createElement('video');v.playsInline=true;v.preload='auto';v.muted=true;v.src=URL.createObjectURL(f);
+      await new Promise(r=>{v.onloadedmetadata=r;v.onerror=r});
+      if(!v.duration){toast('Couldn’t open '+f.name);continue}
+      v.currentTime=Math.min(.1,v.duration/2);await new Promise(r=>{v.onseeked=r;setTimeout(r,1500)});
+      const c=document.createElement('canvas');c.width=108;c.height=192;drawFit(c.getContext('2d'),108,192,v,'fill');
+      v.onseeked=()=>redraw();
+      addScene({kind:'video',src:v,thumb:c.toDataURL('image/jpeg',.6),dur:Math.round(Math.min(v.duration,60)*10)/10,motion:'still',name:f.name});
+    }else{
+      const img=new Image();img.src=URL.createObjectURL(f);
+      try{await img.decode()}catch(e){toast('Couldn’t open '+f.name);continue}
+      addScene({src:img,thumb:img.src,name:f.name});
+    }
+  }
+  scrub.value=0;renderScenes();toast(real.length+' added');
+}
+$('#addMedia').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('#clearScenes').onclick=()=>{S.scenes=[];renderScenes()};
+
+/* size */
+fillPresets($('#vmPreset'),['reel','ig45','square','pin','yt']);
+$('#vmPreset').onchange=e=>{const p=PRESETS.find(x=>x[0]===e.target.value);S.w=p[2];S.h=p[3];stage.width=S.w;stage.height=S.h;redraw()};
+$('#vmFit').onchange=e=>{S.fit=e.target.value;redraw()};
+
+/* voice */
+const GV=[['Kore','Kore — firm'],['Puck','Puck — upbeat'],['Charon','Charon — informative'],['Fenrir','Fenrir — excitable'],['Aoede','Aoede — breezy'],['Leda','Leda — youthful'],['Orus','Orus — firm, deep'],['Zephyr','Zephyr — bright'],['Enceladus','Enceladus — breathy'],['Algenib','Algenib — gravelly'],['Gacrux','Gacrux — mature'],['Sulafat','Sulafat — warm'],['Achernar','Achernar — soft'],['Schedar','Schedar — even']];
+$('#gVoice').innerHTML=opts(GV,store.get('oc_gvoice')||'Kore');
+$('#gVoice').onchange=e=>store.set('oc_gvoice',e.target.value);
+$('#eVoice').value=store.get('oc_evoice')||'21m00Tcm4TlvDq8ikWAM';$('#eVoice').oninput=e=>store.set('oc_evoice',e.target.value.trim());
+$('#vStyle').value=store.get('oc_style');$('#vStyle').oninput=e=>store.set('oc_style',e.target.value);
+function keyName(){return $('#provider').value==='gemini'?'oc_key_gemini':'oc_key_eleven'}
+function syncProvider(){const g=$('#provider').value==='gemini';$('#gVoiceWrap').hidden=!g;$('#eVoiceWrap').hidden=g;$('#apiKey').value=store.get(keyName());
+  $('#keyHelp').innerHTML=g?'Free key: open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>, sign in with Google, tap <b>Create API key</b>, copy it, paste it here. It stays saved on this device.'
+   :'Key: open <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io → Settings → API keys</a>. The free plan is small and not for commercial use.'}
+$('#provider').value=store.get('oc_provider')||'gemini';syncProvider();
+$('#provider').onchange=()=>{store.set('oc_provider',$('#provider').value);syncProvider()};
+$('#apiKey').oninput=e=>store.set(keyName(),e.target.value.trim());
+if(!ON_HOST){$('#hostNote').hidden=false;$('#hostNote').textContent='Inside Claude, AI voice, the mic and the caption writer are blocked. They work in the installed Outlaw Cut app. Everything else works right here, including uploading a voice memo.'}
+
+function netErr(e){if(e instanceof TypeError)return new Error('Couldn’t reach the service from inside Claude. Use the installed Outlaw Cut app for this.');return e}
+async function tts(text){
+  audio();const key=$('#apiKey').value.trim();
+  if(!key)throw new Error('Paste your API key in step 03 first.');
+  const style=$('#vStyle').value.trim();
+  if($('#provider').value==='eleven'){
+    let r;try{r=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent($('#eVoice').value.trim()||'21m00Tcm4TlvDq8ikWAM')+'?output_format=mp3_44100_128',{method:'POST',headers:{'xi-api-key':key,'Content-Type':'application/json',accept:'audio/mpeg'},body:JSON.stringify({text,model_id:'eleven_multilingual_v2'})})}catch(e){throw netErr(e)}
+    if(!r.ok){let m='';try{m=(await r.json()).detail?.message||''}catch(e){}throw new Error('ElevenLabs said no ('+r.status+'). '+(m||'Check your key and voice ID.'))}
+    return await ac.decodeAudioData(await r.arrayBuffer());
+  }
+  const prompt=style?('Say this '+style+': '+text):text;
+  const body=JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:$('#gVoice').value}}}}});
+  let last='';
+  for(const model of ['gemini-2.5-flash-preview-tts','gemini-3.1-flash-tts-preview']){
+    let r;try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body})}catch(e){throw netErr(e)}
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){last=(j.error&&j.error.message)||('Error '+r.status);if(r.status===400||r.status===401||r.status===403)break;continue}
+    const part=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts.find(p=>p.inlineData);
+    if(!part){last='No audio came back. Try shorter text.';continue}
+    const rate=+((/rate=(\d+)/.exec(part.inlineData.mimeType||'')||[])[1]||24000);
+    const bin=atob(part.inlineData.data),n=bin.length>>1,buf=ac.createBuffer(1,n,rate),d=buf.getChannelData(0);
+    for(let i=0;i<n;i++){let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8);if(v>=32768)v-=65536;d[i]=v/32768}
+    return buf;
+  }
+  if(/quota|exhaust|429/i.test(last))throw new Error('Free daily voice limit reached. Try again tomorrow or switch voice service.');
+  if(/API key/i.test(last))throw new Error('That key didn’t work. Copy it again from aistudio.google.com/apikey.');
+  throw new Error(last||'Voice failed. Try again.');
+}
+$('#makeAll').onclick=async()=>{const st=$('#allStatus');const todo=S.scenes.filter(s=>s.voiceText.trim());
+  if(!todo.length){st.textContent='Add voice lines to your scenes first.';st.className='status err';return}
+  let ok=0;for(const s of todo){st.textContent='Making voice '+(ok+1)+' of '+todo.length+'…';st.className='status';
+    try{s.voiceBuf=await tts(s.voiceText.trim());ok++}catch(e){st.textContent=e.message;st.className='status err';renderScenes();return}}
+  st.textContent='All '+ok+' voices ready.';st.className='status good';renderScenes()};
+
+/* voiceover (mic / upload) */
+function setNarr(buf,label){S.narr=buf;$('#narrStatus').textContent=buf?(label+' · '+fmtT(buf.duration)):'No voiceover yet.';$('#narrStatus').className=buf?'status good':'status';$('#narrPlay').disabled=!buf;$('#narrDel').disabled=!buf;updateTotal();redraw()}
+$('#narrFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;audio();try{setNarr(await ac.decodeAudioData(await f.arrayBuffer()),f.name)}catch(err){toast('Couldn’t read that audio file')}};
+$('#narrPlay').onclick=()=>S.narr&&playOnce(S.narr,S.vVoice);
+$('#narrDel').onclick=()=>setNarr(null);
+$('#fitNarr').onchange=e=>{S.fitNarr=e.target.checked;updateTotal();redraw()};
+let micRec=null;
+$('#micBtn').onclick=async()=>{
+  audio();
+  if(micRec){micRec.stop();return}
+  let stream;try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+  catch(e){$('#narrStatus').textContent='The mic is blocked inside Claude. Upload a voice memo instead, or record in the installed app.';$('#narrStatus').className='status err';return}
+  const chunks=[];micRec=new MediaRecorder(stream);micRec.ondataavailable=ev=>ev.data.size&&chunks.push(ev.data);
+  micRec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());micRec=null;$('#micBtn').textContent='● Record';
+    try{setNarr(await ac.decodeAudioData(await new Blob(chunks).arrayBuffer()),'Recorded voiceover')}catch(e){toast('Recording couldn’t be read. Try again.')}};
+  micRec.start();$('#micBtn').textContent='■ Stop recording';$('#narrStatus').textContent='Recording… talk now.';$('#narrStatus').className='status';
+};
+
+/* music + volumes */
+$('#musicSel').onchange=e=>{audio();S.musicSel=e.target.value;$('#musicFileWrap').hidden=S.musicSel!=='upload';
+  if(BEDS[S.musicSel]){S.music=BEDS[S.musicSel]();$('#musicStatus').textContent='Built-in track loops under your video.';playOnce(S.music,S.vMusic)}
+  else if(S.musicSel==='none'){S.music=null;$('#musicStatus').textContent=''}
+  else{S.music=null;$('#musicStatus').textContent='Pick a song file.'}};
+$('#musicFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;audio();try{S.music=await ac.decodeAudioData(await f.arrayBuffer());$('#musicStatus').textContent=f.name+' · loops if shorter than the video. Only use music you have rights to.'}catch(err){$('#musicStatus').textContent='Couldn’t read that song file.'}};
+$('#duck').onchange=e=>S.duck=e.target.checked;
+$('#volVoice').oninput=e=>S.vVoice=+e.target.value;$('#volMusic').oninput=e=>S.vMusic=+e.target.value;$('#volSfx').oninput=e=>S.vSfx=+e.target.value;
+Object.keys(SFX).forEach(k=>{const b=document.createElement('button');b.className='btn sm';b.textContent='▶ '+SFX[k][0];b.onclick=()=>playOnce(sfxBuf(k),S.vSfx);$('#sfxChips').appendChild(b)});
+
+/* text style */
+['capStyle','capPos','capAnim'].forEach(k=>$('#'+k).onchange=e=>{S[k]=e.target.value;redraw()});
+$('#capSize').oninput=e=>{S.capSize=+e.target.value;redraw()};
+$('#mark').value=store.get('oc_mark');S.mark=$('#mark').value;$('#mark').oninput=e=>{S.mark=e.target.value;store.set('oc_mark',S.mark);redraw()};
+$('#fps').onchange=e=>S.fps=+e.target.value;$('#quality').onchange=e=>S.bitrate=+e.target.value;
+
+/* export */
+let cancelFlag=false;
+function busy(on,title){$('#busy').hidden=!on;if(title)$('#busyTitle').textContent=title;$('#busyBar').style.width='0%';$('#busyTime').textContent=''}
+function progress(t,total){$('#busyBar').style.width=Math.min(100,t/total*100)+'%';$('#busyTime').textContent=fmtT(t)+' / '+fmtT(total)}
+$('#busyCancel').onclick=()=>{cancelFlag=true;if(playing)stopPlayback(false);if(rzStop)rzStop()};
+function showResult(box,blob,name,isVideo){
+  box.hidden=false;box.innerHTML='';const url=URL.createObjectURL(blob);
+  const m=document.createElement(isVideo?'video':'img');m.src=url;if(isVideo){m.controls=true;m.playsInline=true}
+  const b=document.createElement('button');b.className='btn primary';b.textContent='Save '+name;b.onclick=()=>saveBlob(blob,name);
+  const p=document.createElement('p');p.className='hint';p.textContent=(blob.size/1048576).toFixed(1)+' MB'+(name.endsWith('.webm')?' · This phone saves WEBM. TikTok and YouTube take it; for Instagram, run it through an MP4 converter.':'');
+  box.append(m,b,p);
+}
+async function recordCanvas(canvas,fps,bitrate,run){
+  const mime=pickMime();if(mime===null)throw new Error('This browser can’t record video. Use Chrome.');
+  audio();const dest=ac.createMediaStreamDestination();mix.connect(dest);
+  const vs=canvas.captureStream(fps);const stream=new MediaStream([...vs.getVideoTracks(),...dest.stream.getAudioTracks()]);
+  const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:bitrate,audioBitsPerSecond:192000}:{videoBitsPerSecond:bitrate});
+  const chunks=[];rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  const stopped=new Promise(r=>rec.onstop=r);rec.start(500);
+  try{await run()}finally{await sleep(250);rec.stop();await stopped;try{mix.disconnect(dest)}catch(e){}vs.getTracks().forEach(t=>t.stop())}
+  const type=rec.mimeType||mime||'video/webm';return {blob:new Blob(chunks,{type}),ext:type.includes('mp4')?'mp4':'webm'};
+}
+$('#exportBtn').onclick=async()=>{
+  if(playing)stopPlayback(false);
+  if(!S.scenes.length){toast('Add scenes first');return}
+  await fontsReady;cancelFlag=false;busy(true,'Recording your video…');keepAwake(true);
+  try{
+    const tl=timeline();drawFrame(sctx,S.w,S.h,0,tl);
+    const out=await recordCanvas(stage,S.fps,S.bitrate,()=>startPlayback(progress));
+    if(cancelFlag){toast('Export cancelled');return}
+    const name='outlaw-cut-'+new Date().toISOString().slice(0,10)+'-'+S.w+'x'+S.h+'.'+out.ext;
+    busy(false);showResult($('#vmResult'),out.blob,name,true);await saveBlob(out.blob,name);
+  }catch(e){toast(e.message||'Export failed')}
+  finally{busy(false);keepAwake(false);scrub.value=0;redraw()}
+};
+
+/* post caption */
+$('#pcLink').value=store.get('oc_link');$('#pcLink').oninput=e=>store.set('oc_link',e.target.value);
+$('#pcGo').onclick=async()=>{
+  const st=$('#pcStatus');const key=store.get('oc_key_gemini')||($('#provider').value==='gemini'?$('#apiKey').value.trim():'');
+  if(!key){st.textContent='Paste a free Gemini key in step 03 first.';st.className='status err';return}
+  const lines=S.scenes.filter(s=>!s.example).map(s=>[s.text,s.voiceText].filter(Boolean).join(' / ')).filter(Boolean).join('\n');
+  const topic=$('#pcTopic').value.trim(),link=$('#pcLink').value.trim(),plat=$('#pcPlat').value;
+  if(!topic&&!lines){st.textContent='Say what the video is about.';st.className='status err';return}
+  st.textContent='Writing…';st.className='status';
+  const prompt='Write one ready-to-paste '+plat+' caption for a short video.\nTopic: '+(topic||'(see scene text)')+'\nScene text and voice lines:\n'+(lines||'(none)')+'\nLink to include: '+(link||'(none)')+
+   '\nRules: open with a scroll-stopping hook line; 2-3 short lines using natural SEO search keywords for this topic; a clear call to action'+(link?' with the link on its own line':'')+'; then 12-18 relevant hashtags mixing broad and niche on one line. No quotation marks, no headings, no explanations. Output only the caption.';
+  try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||'Error '+r.status);
+    $('#pcOut').value=(j.candidates[0].content.parts.map(p=>p.text||'').join('')).trim();st.textContent='Done. Tap Copy.';st.className='status good'}
+  catch(e){st.textContent=netErr(e).message;st.className='status err'}
+};
+$('#pcCopy').onclick=()=>{const t=$('#pcOut');if(!t.value)return;navigator.clipboard.writeText(t.value).then(()=>toast('Caption copied'),()=>{t.focus();t.select();toast('Selected. Tap Copy in the menu.')})};
+
+/* ================= RESIZER ================= */
+const R={files:[],kind:'image',img:null,vid:null,w:1080,h:1920,fit:'fill',bg:'#000000',fmt:'image/jpeg',q:.92};
+const rc=$('#rzPrev'),rctx=rc.getContext('2d');
+fillPresets($('#rzPreset'));
+function rzSize(){const p=PRESETS.find(x=>x[0]===$('#rzPreset').value);const custom=p[0]==='custom';$('#rzWWrap').hidden=!custom;$('#rzHWrap').hidden=!custom;
+  R.w=custom?Math.max(16,Math.min(8000,+$('#rzW').value||1080)):p[2];R.h=custom?Math.max(16,Math.min(8000,+$('#rzH').value||1080)):p[3];rzPreview()}
+function rzPreview(){const src=R.kind==='video'?R.vid:R.img;rc.width=R.w;rc.height=R.h;rctx.fillStyle='#000';rctx.fillRect(0,0,R.w,R.h);if(src)drawFit(rctx,R.w,R.h,src,R.fit,R.bg)}
+$('#rzPreset').onchange=rzSize;$('#rzW').oninput=rzSize;$('#rzH').oninput=rzSize;
+$('#rzFit').onchange=e=>{R.fit=e.target.value;$('#rzBgWrap').hidden=R.fit!=='color';rzPreview()};
+$('#rzBg').oninput=e=>{R.bg=e.target.value;rzPreview()};
+$('#rzFmt').onchange=e=>R.fmt=e.target.value;$('#rzQ').oninput=e=>R.q=+e.target.value;
+$('#rzFiles').onchange=async e=>{
+  const fs=[...e.target.files];e.target.value='';if(!fs.length)return;$('#rzInfo').textContent='Opening '+fs.length+' file'+(fs.length>1?'s':'')+'…';
+  const vid=fs.find(f=>f.type.startsWith('video'));
+  if(vid){R.kind='video';R.files=[vid];const v=document.createElement('video');v.playsInline=true;v.preload='auto';v.src=URL.createObjectURL(vid);
+    await new Promise(r=>{v.onloadedmetadata=r;v.onerror=r});if(!v.duration){toast('Couldn’t open that video');return}
+    R.vid=v;$('#rzA').value=0;$('#rzB').value=v.duration.toFixed(1);v.currentTime=Math.min(.2,v.duration/2);await new Promise(r=>{v.onseeked=r;setTimeout(r,1500)});
+    $('#rzInfo').textContent=vid.name+' · '+fmtT(v.duration)+' · '+v.videoWidth+'×'+v.videoHeight;
+  }else{R.kind='image';R.files=fs.filter(f=>f.type.startsWith('image'));const img=new Image();img.src=URL.createObjectURL(R.files[0]);try{await img.decode()}catch(err){toast('Couldn’t open that photo');return}R.img=img;
+    $('#rzInfo').textContent=R.files.length+' photo'+(R.files.length>1?'s':'')+' · first is '+img.naturalWidth+'×'+img.naturalHeight}
+  $('#rzImgOpts').hidden=R.kind!=='image';$('#rzVidOpts').hidden=R.kind!=='video';$('#rzToMaker').hidden=R.kind!=='image';rzPreview();
+};
+async function loadImg(f){const img=new Image();img.src=URL.createObjectURL(f);await img.decode();return img}
+let rzStop=null;
+$('#rzGo').onclick=async()=>{
+  if(!R.files.length){toast('Pick photos or a video first');return}
+  const base=n=>n.replace(/\.[^.]+$/,'');
+  if(R.kind==='image'){
+    const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[R.fmt];let last=null,lastName='';
+    for(const f of R.files){try{const img=await loadImg(f);const c=document.createElement('canvas');c.width=R.w;c.height=R.h;const x=c.getContext('2d');
+      if(R.fmt==='image/jpeg'){x.fillStyle=R.bg;x.fillRect(0,0,R.w,R.h)}drawFit(x,R.w,R.h,img,R.fit,R.bg);
+      const blob=await new Promise(r=>c.toBlob(r,R.fmt,R.q));const name=base(f.name)+'_'+R.w+'x'+R.h+'.'+ext;last=blob;lastName=name;await saveBlob(blob,name);URL.revokeObjectURL(img.src)}catch(e){toast('Skipped '+f.name)}}
+    if(last)showResult($('#rzResult'),last,lastName,false);return;
+  }
+  const v=R.vid,a=Math.max(0,+$('#rzA').value||0),b=Math.min(v.duration,+$('#rzB').value||v.duration);
+  if(b-a<.3){toast('End must be after start');return}
+  audio();if(!v._node){try{v._node=ac.createMediaElementSource(v);v._node.connect(mix)}catch(e){}}
+  v.muted=!$('#rzSound').checked;cancelFlag=false;busy(true,'Resizing your video…');keepAwake(true);
+  rc.width=R.w;rc.height=R.h;
+  try{
+    v.currentTime=a;await new Promise(r=>{v.onseeked=r;setTimeout(r,2000)});drawFit(rctx,R.w,R.h,v,R.fit,R.bg);
+    const out=await recordCanvas(rc,30,8e6,()=>new Promise(res=>{
+      let done=false;const fin=()=>{if(done)return;done=true;v.pause();rzStop=null;res()};rzStop=fin;
+      v.onended=fin;v.play().catch(fin);
+      const tick=()=>{if(done)return;if(v.currentTime>=b||v.ended){fin();return}rctx.fillStyle='#000';rctx.fillRect(0,0,R.w,R.h);drawFit(rctx,R.w,R.h,v,R.fit,R.bg);progress(v.currentTime-a,b-a);requestAnimationFrame(tick)};
+      requestAnimationFrame(tick)}));
+    if(cancelFlag){toast('Cancelled');return}
+    const name=base(R.files[0].name)+'_'+R.w+'x'+R.h+'.'+out.ext;busy(false);showResult($('#rzResult'),out.blob,name,true);await saveBlob(out.blob,name);
+  }catch(e){toast(e.message||'Resize failed')}
+  finally{busy(false);keepAwake(false);v.onended=null;rzPreview()}
+};
+$('#rzToMaker').onclick=async()=>{if(R.kind!=='image'||!R.files.length){toast('Pick photos first');return}await addFiles(R.files);selectTab('maker');toast('Photos added as scenes')};
+function rzExample(){const c=makeExample(1);R.img=c;rzPreview()}
+
+/* ---------- tabs, install, boot ---------- */
+function selectTab(which){const m=which==='maker';$('#maker').hidden=!m;$('#resizer').hidden=m;$('#tabMaker').setAttribute('aria-selected',m);$('#tabResize').setAttribute('aria-selected',!m);if(m)redraw();else rzPreview()}
+document.querySelectorAll('[data-pick]').forEach(b=>b.addEventListener('click',()=>{const i=document.getElementById(b.dataset.pick);i.value='';i.click()}));
+$('#tabMaker').onclick=()=>selectTab('maker');$('#tabResize').onclick=()=>selectTab('resize');
+let deferred=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('#installBar').hidden=false});
+$('#installBtn').onclick=async()=>{if(!deferred)return;deferred.prompt();try{await deferred.userChoice}catch(e){}deferred=null;$('#installBar').hidden=true};
+if(ON_HOST&&'serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+
+const fontsReady=(document.fonts?Promise.race([Promise.all([document.fonts.load('800 72px Barlow'),document.fonts.load('72px Bungee')]),sleep(2500)]):Promise.resolve()).catch(()=>{});
+seedExamples();renderScenes();rzExample();
+fontsReady.then(()=>{redraw();rzPreview()});
+})();
+</script>
+</body></html>
