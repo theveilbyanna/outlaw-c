@@ -1,0 +1,503 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Outlaw Studio · AI pictures + trace projector</title>
+<meta name="description" content="Free AI pictures, then trace them: point your phone camera at paper like an overhead projector, or lay paper on your screen like a light box.">
+<meta name="theme-color" content="#141016">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: one phone-width column with Create / Trace / Gallery tabs, matching Outlaw Cut.
+   Tracing opens a full-screen stage (camera projector or white light box) with the picture floating on top. */
+:root{
+  --ink:#141016;--panel:#1e1820;--panel-2:#2a222c;--line:#3d3240;
+  --bone:#efe5d8;--dim:#ab9ca8;--rose:#ff5c8a;--brass:#e3b55a;--ok:#73d6a0;--bad:#ff806f;
+  --display:'Bungee','Arial Black',Impact,sans-serif;
+  --body:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--ink)}
+body{margin:0;background:var(--ink);color:var(--bone);font:16px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+.wrap{max-width:760px;margin:0 auto;display:grid;gap:18px}
+header{display:grid;gap:6px;padding-top:6px}
+.back{justify-self:start;color:var(--brass);text-decoration:none;font:500 13px var(--mono);border:1px solid var(--line);border-radius:99px;padding:6px 12px}
+.back:hover{border-color:var(--brass)}
+h1{font:400 clamp(30px,9vw,46px)/1 var(--display);margin:0;letter-spacing:.01em}
+h1 span{color:var(--rose)}
+.tag{color:var(--dim);margin:0;max-width:60ch}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--panel);padding:6px;border-radius:14px;border:1px solid var(--line)}
+.tabs button{min-height:48px;border:0;border-radius:10px;background:transparent;color:var(--dim);font:800 15px var(--body);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--rose);color:var(--ink)}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:12px;min-width:0}
+.step h2{margin:0;font:400 17px/1.2 var(--display);color:var(--brass);letter-spacing:.03em}
+.hint{margin:0;color:var(--dim);font-size:14px;max-width:62ch}
+.hint a,.note a,details a{color:var(--brass)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.field{display:grid;gap:4px;min-width:0}
+label,.lbl{font:600 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+input[type=text],input[type=password],select,textarea{width:100%;background:var(--panel-2);color:var(--bone);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:16px var(--body);min-height:44px}
+textarea{resize:vertical;min-height:90px}
+input[type=range]{accent-color:var(--rose);width:100%}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row>.grow{flex:1 1 180px}
+.btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--bone);font:700 15px var(--body);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+.btn:hover{border-color:var(--dim)}
+.btn.primary{background:var(--rose);border-color:var(--rose);color:var(--ink);font-weight:800}
+.btn.big{min-height:54px;font-size:17px}
+.btn.sm{min-height:36px;padding:0 10px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.result{position:relative;background:var(--panel-2);border:1px dashed var(--line);border-radius:12px;min-height:240px;display:grid;place-items:center;overflow:hidden}
+.result img{max-width:100%;max-height:70vh;display:block;border-radius:10px}
+.result p{color:var(--dim);margin:0;padding:20px;text-align:center}
+.status{font-size:14px;color:var(--dim);margin:0}
+.status.err{color:var(--bad)}
+.status.good{color:var(--ok)}
+.note{background:var(--panel-2);border-left:3px solid var(--brass);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--bone);margin:0}
+details.key{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:0 12px}
+details.key[open]{padding-bottom:12px}
+details.key summary{cursor:pointer;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;list-style:none}
+details.key summary::-webkit-details-marker{display:none}
+details.key ol{margin:0 0 10px;padding-left:20px;color:var(--dim);font-size:14px;display:grid;gap:4px}
+details.key ol b{color:var(--bone)}
+.pill{font:500 11px var(--mono);padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--dim);text-transform:uppercase}
+.pill.ok{color:var(--ok);border-color:var(--ok)}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.gal figure{margin:0;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:grid}
+.gal img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#000}
+.gal .acts{display:flex}
+.gal .acts button{flex:1;border-radius:0;min-height:40px;font-size:13px;border:0;border-top:1px solid var(--line)}
+.gal .acts button+button{border-left:1px solid var(--line)}
+.empty{color:var(--dim);font-style:italic;margin:0}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.mode{display:grid;gap:4px;text-align:left;background:var(--panel-2);color:var(--bone);border:1px solid var(--line);border-radius:12px;padding:14px;min-height:96px;cursor:pointer;font:inherit}
+.mode b{font:400 16px var(--display);color:var(--brass)}
+.mode span{font-size:14px;color:var(--dim)}
+.mode:hover{border-color:var(--brass)}
+.thumb{width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#000;flex:none}
+.picker{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:80;background:var(--bone);color:var(--ink);padding:10px 16px;border-radius:10px;font-weight:700;max-width:90vw;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.install{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--panel);border:1px solid var(--brass);border-radius:14px;padding:12px 14px}
+/* stage */
+#stage{position:fixed;inset:0;z-index:50;background:#000;display:none;touch-action:none;overflow:hidden}
+#stage.on{display:block}
+#stage.light{background:#fff}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#ov{position:absolute;left:50%;top:50%;transform-origin:center;user-select:none;-webkit-user-drag:none;pointer-events:none;max-width:none}
+#grid{position:absolute;inset:0;display:none;pointer-events:none;background-image:linear-gradient(rgba(255,92,138,.55) 1px,transparent 1px),linear-gradient(90deg,rgba(255,92,138,.55) 1px,transparent 1px);background-size:60px 60px}
+#msg{position:absolute;left:16px;right:16px;top:30%;display:none;gap:10px;background:rgba(20,16,22,.95);color:var(--bone);border:1px solid var(--brass);border-radius:12px;padding:16px;font-size:15px;text-align:center;z-index:3}
+#msg.on{display:grid}
+#msg .row{justify-content:center}
+#lockTag{position:absolute;top:calc(64px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:none;font:500 12px var(--mono);letter-spacing:.2em;background:var(--rose);color:var(--ink);padding:4px 10px;border-radius:99px}
+.tbar{position:absolute;left:0;right:0;display:grid;gap:8px;padding:10px max(12px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px));background:rgba(20,16,22,.86);color:var(--bone);z-index:2}
+.tbar.top{top:0;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+.tbar.bottom{bottom:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.tbar .r{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tbar button{min-height:38px;padding:6px 11px;font:600 14px var(--body);border-radius:9px;background:transparent;color:var(--bone);border:1px solid var(--line);cursor:pointer}
+.tbar button.on{background:var(--rose);color:var(--ink);border-color:var(--rose)}
+.tbar input[type=range]{flex:1;min-width:120px}
+.tbar .k{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);min-width:92px}
+#showBtn{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));display:none;min-height:40px;opacity:.75;z-index:2}
+#stage.hidebars .tbar{display:none}
+#stage.hidebars #showBtn{display:inline-flex}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style></head><body>
+<main class="wrap">
+<header>
+  <a class="back" href="./">◂ Outlaw Cut video maker</a>
+  <h1>OUTLAW <span>STUDIO</span></h1>
+  <p class="tag">Make a free AI picture, then trace it: point your camera at paper like an overhead projector, or lay paper on your screen like a light box.</p>
+</header>
+
+<div class="install" id="installBar" hidden>
+  <span>Put Outlaw Studio on your home screen like an app.</span>
+  <button class="btn primary sm" id="installBtn">Install app</button>
+</div>
+
+<nav class="tabs" id="tabs" role="tablist">
+  <button role="tab" data-t="create" aria-selected="true">Create</button>
+  <button role="tab" data-t="trace" aria-selected="false">Trace</button>
+  <button role="tab" data-t="gallery" aria-selected="false">Gallery</button>
+</nav>
+
+<!-- ============ CREATE ============ -->
+<section id="t-create" class="step">
+  <div class="field"><label for="prompt">Describe the picture</label><textarea id="prompt">a grinning skull wearing a cowboy hat with a star hatband and a paisley bandana</textarea></div>
+  <div class="grid2">
+    <div class="field"><label for="style">Style</label><select id="style">
+      <option value="">No style</option>
+      <option value="black and white coloring book line art, thick clean outlines, no shading, white background">Line art (best for tracing)</option>
+      <option value="old school tattoo flash, bold outlines, limited colors">Tattoo flash</option>
+      <option value="1950s pin-up illustration, glossy, vintage">Pin-up</option>
+      <option value="gothic dark romantic art, candlelight">Gothic</option>
+      <option value="stained glass art, bold black leading, jewel tones">Stained glass</option>
+      <option value="soft watercolor painting">Watercolor</option>
+      <option value="bold comic book art, halftone">Comic</option>
+      <option value="photorealistic, cinematic lighting">Photo-real</option>
+    </select></div>
+    <div class="field"><label for="shape">Shape</label><select id="shape">
+      <option value="1024x1024">Square 1:1</option>
+      <option value="832x1248">Pin 2:3</option>
+      <option value="768x1344">Story / Reel 9:16</option>
+      <option value="1344x768">Wide 16:9</option>
+    </select></div>
+    <div class="field"><label for="model">Picture engine</label><select id="model">
+      <option value="flux">Flux · best (free)</option>
+      <option value="turbo">Turbo · fastest</option>
+    </select></div>
+  </div>
+  <div class="row"><button class="btn primary big grow" id="make">Make it free</button><button class="btn big" id="again">New version</button></div>
+  <div class="result" id="result"><p>Your picture shows up here. It takes 5 to 40 seconds.</p></div>
+  <p class="status" id="mkStatus" role="status" aria-live="polite"></p>
+  <div class="row" id="resActs" hidden>
+    <button class="btn primary" id="toTrace">Trace this</button>
+    <button class="btn" id="dl">Download</button>
+    <button class="btn" id="gem">Copy prompt + open Gemini</button>
+  </div>
+  <p class="hint">Every picture you make saves to your Gallery on this phone automatically.</p>
+
+  <details class="key" id="keyBox">
+    <summary><span>Steadier pictures: free picture key</span><span class="pill" id="keyPill">no key</span></summary>
+    <p class="hint" style="margin-bottom:10px">Pictures come from Pollinations. Without a key you get their old no-key service, which is slow and sometimes down. A free key uses their new service. Flux pictures stay free.</p>
+    <ol>
+      <li>Open <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">enter.pollinations.ai</a> and sign in.</li>
+      <li>Create a new key and pick the <b>publishable</b> kind. It starts with <b>pk_</b>.</li>
+      <li>Copy it, paste it here and tap <b>Save key</b>. It stays on this phone only.</li>
+    </ol>
+    <div class="row"><input type="password" id="pkey" class="grow" placeholder="pk_…" autocomplete="off" aria-label="Pollinations key"><button class="btn primary" id="pkSave">Save key</button><button class="btn sm" id="pkDel">Remove</button></div>
+    <p class="status" id="pkStatus"></p>
+  </details>
+</section>
+
+<!-- ============ TRACE ============ -->
+<section id="t-trace" class="step" hidden>
+  <div class="row" style="align-items:center;flex-wrap:nowrap">
+    <img id="srcThumb" class="thumb" alt="Picture to trace">
+    <div style="display:grid;gap:8px;min-width:0">
+      <span class="lbl">Picture to trace</span>
+      <div class="row">
+        <button type="button" class="btn" id="pickBtn">Choose a photo or drawing</button>
+        <button type="button" class="btn" id="useLast">Use my last AI picture</button>
+      </div>
+      <input type="file" id="pick" class="picker" accept="image/*" tabindex="-1" aria-label="Choose a picture to trace">
+    </div>
+  </div>
+  <div class="modes">
+    <button class="mode" id="modeCam"><b>Overhead projector</b><span>Camera on. Prop your phone about a foot above the paper, camera facing down, and draw while you watch the screen.</span></button>
+    <button class="mode" id="modeLight"><b>Light box</b><span>No camera. The picture glows on a white screen. Turn brightness all the way up, lay thin paper on the screen and trace.</span></button>
+  </div>
+  <p class="hint">Drag to move. Pinch or use the Size slider to resize. Two fingers twist it. Lock stops bumps from moving it. The screen stays awake while you draw.</p>
+  <p class="note" id="frameNote" hidden>You opened this inside another app, which blocks the camera. <a href="https://outlaw-c.vercel.app/studio.html" target="_blank" rel="noopener">Open Outlaw Studio in its own tab</a> and the projector works.</p>
+</section>
+
+<!-- ============ GALLERY ============ -->
+<section id="t-gallery" class="step" hidden>
+  <div class="gal" id="gal"></div>
+  <p class="hint">Saved on this phone. Tap Get to save a picture to your photos.</p>
+</section>
+</main>
+
+<div id="stage" aria-label="Tracing stage">
+  <video id="cam" playsinline muted autoplay></video>
+  <img id="ov" alt="">
+  <div id="grid"></div>
+  <div id="msg" role="alert"><span id="msgText"></span><div class="row" id="msgActs"></div></div>
+  <div id="lockTag">LOCKED</div>
+  <div class="tbar top"><div class="r">
+    <button id="sClose">✕ Close</button>
+    <button id="sLock">Lock</button>
+    <button id="sFlip">Mirror</button>
+    <button id="sGrid">Grid</button>
+    <button id="sLine">Outline</button>
+    <button id="sWhite">White lines</button>
+    <button id="sSwap">Switch camera</button>
+    <button id="sTorch">Light</button>
+    <button id="sFull">Full screen</button>
+    <button id="sHide">Hide controls</button>
+  </div></div>
+  <div class="tbar bottom">
+    <div class="r"><span class="k">See-through</span><input type="range" id="opac" min="5" max="100" value="55" aria-label="See-through"></div>
+    <div class="r"><span class="k">Size</span><input type="range" id="scale" min="10" max="400" value="100" aria-label="Size"></div>
+    <div class="r"><span class="k">Turn</span><input type="range" id="rot" min="-180" max="180" value="0" aria-label="Turn"></div>
+    <div class="r"><span class="k">Line detail</span><input type="range" id="det" min="10" max="90" value="45" aria-label="Line detail"></div>
+  </div>
+  <button class="btn" id="showBtn">Show controls</button>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+function load(k,d){try{var v=localStorage.getItem('os:'+k);return v==null?d:JSON.parse(v)}catch(e){return d}}
+function save(k,v){try{if(v==null)localStorage.removeItem('os:'+k);else localStorage.setItem('os:'+k,JSON.stringify(v));return true}catch(e){return false}}
+var toastT;function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
+var IN_FRAME=(function(){try{return window.self!==window.top}catch(e){return true}})();
+
+/* ---------- picture storage (IndexedDB keeps the actual image files on this phone) ---------- */
+var DB=(function(){
+  var p=null;
+  function open(){if(p)return p;p=new Promise(function(res,rej){if(!window.indexedDB){rej(new Error('no idb'));return}
+    var r=indexedDB.open('outlaw-studio',1);r.onupgradeneeded=function(){r.result.createObjectStore('pics',{keyPath:'id'})};
+    r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}});return p}
+  function run(mode,fn){return open().then(function(db){return new Promise(function(res,rej){var tx=db.transaction('pics',mode),req=fn(tx.objectStore('pics'));
+    tx.oncomplete=function(){res(req?req.result:undefined)};tx.onerror=function(){rej(tx.error)};tx.onabort=function(){rej(tx.error)}})})}
+  return{put:function(o){return run('readwrite',function(s){return s.put(o)})},
+    get:function(id){return run('readonly',function(s){return s.get(id)})},
+    all:function(){return run('readonly',function(s){return s.getAll()})},
+    del:function(id){return run('readwrite',function(s){return s.delete(id)})}};
+})();
+var urls={};function blobUrl(o){if(!o)return'';if(o.blob){if(!urls[o.id])urls[o.id]=URL.createObjectURL(o.blob);return urls[o.id]}return o.u||''}
+function forget(id){if(urls[id]){URL.revokeObjectURL(urls[id]);delete urls[id]}}
+
+/* ---------- tabs ---------- */
+function show(t){Array.prototype.forEach.call($('tabs').children,function(b){b.setAttribute('aria-selected',b.dataset.t===t?'true':'false')});
+  ['create','trace','gallery'].forEach(function(k){$('t-'+k).hidden=k!==t});if(t==='gallery')renderGal()}
+Array.prototype.forEach.call($('tabs').children,function(b){b.onclick=function(){show(b.dataset.t)}});
+if(IN_FRAME)$('frameNote').hidden=false;
+
+/* ---------- key ---------- */
+function getKey(){return String(load('pkey','')||'').trim()}
+function keyUI(){var k=getKey();$('keyPill').textContent=k?'key saved':'no key';$('keyPill').className='pill'+(k?' ok':'');$('pkey').value='';$('pkey').placeholder=k?'Saved ✓ (paste a new one to replace)':'pk_…'}
+$('pkSave').onclick=function(){var v=$('pkey').value.trim();if(!v){$('pkey').focus();return}
+  if(/^sk_/.test(v)){$('pkStatus').textContent='That is a secret key (sk_). Make a publishable one that starts with pk_ instead. Secret keys aren’t safe in a web page.';$('pkStatus').className='status err';return}
+  save('pkey',v);keyUI();$('pkStatus').textContent='Key saved on this phone. Tap Make it free.';$('pkStatus').className='status good'};
+$('pkDel').onclick=function(){save('pkey',null);keyUI();$('pkStatus').textContent='Key removed. The no-key service will be used.';$('pkStatus').className='status'};
+keyUI();
+
+/* ---------- create ---------- */
+var seed=Math.floor(Math.random()*1e9),lastAnon=0,busy=false,current=null;
+['prompt','style','shape','model'].forEach(function(id){var v=load('f_'+id,null);if(v!=null)$(id).value=v;$(id).addEventListener('change',function(){save('f_'+id,$(id).value)})});
+function fullPrompt(){var s=$('style').value;return $('prompt').value.trim()+(s?', '+s:'')}
+function sources(){
+  var p=encodeURIComponent(fullPrompt()),wh=$('shape').value.split('x'),m=$('model').value,k=getKey();
+  var q='width='+wh[0]+'&height='+wh[1]+'&seed='+seed+'&model='+m+'&nologo=true';
+  var list=[];
+  if(k)list.push({name:'your key',anon:false,u:'https://gen.pollinations.ai/image/'+p+'?'+q+'&key='+encodeURIComponent(k)});
+  list.push({name:'the free no-key service',anon:true,u:'https://image.pollinations.ai/prompt/'+p+'?'+q});
+  return list;
+}
+function status(m,cls){$('mkStatus').textContent=m||'';$('mkStatus').className='status'+(cls?' '+cls:'')}
+/* fetch gives us the real file (for download, outline and the gallery); an <img> is the backup if the service blocks fetch */
+function fetchPic(u,ms){
+  var ctl=window.AbortController?new AbortController():null,t=setTimeout(function(){if(ctl)ctl.abort()},ms);
+  return fetch(u,ctl?{signal:ctl.signal}:{}).then(function(r){
+    if(!r.ok){var e=new Error('http');e.status=r.status;throw e}
+    var ct=r.headers.get('content-type')||'';if(ct&&!/^image\//.test(ct)){var e2=new Error('not an image');e2.status=502;throw e2}
+    return r.blob()}).then(function(b){clearTimeout(t);if(!b||b.size<500){var e=new Error('empty');e.status=502;throw e}return{blob:b}})
+  .catch(function(e){clearTimeout(t);if(e&&e.name==='AbortError'){var x=new Error('timeout');x.status=408;throw x}throw e});
+}
+function imgPic(u,ms){return new Promise(function(res,rej){var im=new Image(),done=false;var t=setTimeout(function(){if(done)return;done=true;im.src='';var e=new Error('timeout');e.status=408;rej(e)},ms);
+  im.onload=function(){if(done)return;done=true;clearTimeout(t);if(im.naturalWidth<16){var e=new Error('empty');e.status=502;rej(e);return}res({u:u})};
+  im.onerror=function(){if(done)return;done=true;clearTimeout(t);var e=new Error('error');e.status=0;rej(e)};im.src=u})}
+function getPic(u){return fetchPic(u,90000).catch(function(e){if(e&&e.status)throw e;return imgPic(u,90000)})}
+async function waitAnon(){var w=16000-(Date.now()-lastAnon);while(w>0){status('The free no-key service allows one picture every 15 seconds. Starting in '+Math.ceil(w/1000)+'…');await sleep(Math.min(1000,w));w=16000-(Date.now()-lastAnon)}lastAnon=Date.now()}
+async function make(){
+  if(busy)return;
+  if(!$('prompt').value.trim()){$('prompt').focus();return}
+  busy=true;$('make').disabled=true;$('again').disabled=true;$('resActs').hidden=true;
+  $('result').innerHTML='<p>Painting… 5 to 40 seconds.</p>';
+  var list=sources(),got=null,used=null,errs=[];
+  for(var i=0;i<list.length&&!got;i++){var s=list[i];
+    for(var a=0;a<2&&!got;a++){
+      if(s.anon)await waitAnon();
+      status('Painting with '+s.name+(a?' (second try)':'')+'…');
+      try{got=await getPic(s.u+(a?'&r='+Date.now():''));used=s}
+      catch(e){errs.push({s:s,code:e&&e.status});if(e&&(e.status===401||e.status===403||e.status===402))break}
+    }
+  }
+  busy=false;$('make').disabled=false;$('again').disabled=false;
+  if(!got){fail(errs);return}
+  var item={id:'p'+Date.now(),t:Date.now(),p:fullPrompt(),u:used.u.replace(/&key=[^&]*/,''),blob:got.blob||null};
+  if(!item.blob)item.u=used.u;
+  showPic(item);status(item.blob?'Done. It’s in your Gallery too.':'Done. (This one can’t be saved inside the app, tap Download to open it.)','good');
+  current=item;save('lastId',item.id);
+  DB.put(item).catch(function(){});
+}
+function fail(errs){
+  var key=getKey(),codes=errs.map(function(x){return x.code});
+  var m;
+  if(key&&codes.some(function(c){return c===401||c===403}))m='Your picture key was turned down. Copy it again from enter.pollinations.ai (the one starting with pk_) and save it below.';
+  else if(codes.indexOf(402)>-1)m='Your picture key is out of free credit for that engine. Pick Flux, which is free, and try again.';
+  else if(!key)m='The free no-key picture service is busy or down right now. Add a free picture key below (two minutes, makes pictures steadier), tap New version in a minute, or use Copy prompt + open Gemini.';
+  else m='Pictures didn’t come through this time. Tap New version in a minute, or use Copy prompt + open Gemini.';
+  $('result').innerHTML='';var p=document.createElement('p');p.className='status err';p.textContent=m;$('result').appendChild(p);status('');
+  $('resActs').hidden=false;$('toTrace').hidden=true;$('dl').hidden=true;
+  if(!key)$('keyBox').open=true;
+}
+function showPic(item){var box=$('result');box.innerHTML='';var im=new Image();im.alt=item.p||'AI picture';im.src=blobUrl(item);box.appendChild(im);
+  $('resActs').hidden=false;$('toTrace').hidden=false;$('dl').hidden=false}
+$('make').onclick=make;
+$('again').onclick=function(){seed=Math.floor(Math.random()*1e9);make()};
+$('toTrace').onclick=function(){if(!current)return;setTrace(current);show('trace')};
+$('dl').onclick=function(){if(current)download(current)};
+$('gem').onclick=function(){var t=fullPrompt()+'. No text, no watermark.';
+  var done=function(){$('gem').textContent='Copied ✓ paste it in Gemini';setTimeout(function(){$('gem').textContent='Copy prompt + open Gemini'},2500)};
+  try{navigator.clipboard.writeText(t).then(done,done)}catch(e){done()}
+  window.open('https://gemini.google.com/app','_blank','noopener')};
+
+function fileName(item){return 'outlaw-studio-'+(item.t||Date.now())+((item.blob&&/png/.test(item.blob.type))?'.png':'.jpg')}
+function saveBlob(b,name){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},5000);toast('Saved '+name)}
+function download(item){
+  if(item.blob){saveBlob(item.blob,fileName(item));return}
+  fetch(item.u).then(function(r){if(!r.ok)throw 0;return r.blob()}).then(function(b){saveBlob(b,fileName(item))})
+  .catch(function(){window.open(item.u,'_blank','noopener');toast('Opened in a new tab. Press and hold the picture → Download image.')});
+}
+
+/* ---------- gallery ---------- */
+function renderGal(){var box=$('gal');
+  DB.all().then(function(all){
+    var g=(all||[]).filter(function(x){return x.id!=='_trace'}).sort(function(a,b){return b.t-a.t});box.innerHTML='';
+    if(!g.length){var p=document.createElement('p');p.className='empty';p.textContent='Nothing here yet. Make a picture and it lands here.';box.appendChild(p);return}
+    g.forEach(function(it){var f=document.createElement('figure');var im=document.createElement('img');im.loading='lazy';im.src=blobUrl(it);im.alt=it.p||'Saved picture';f.appendChild(im);
+      var a=document.createElement('div');a.className='acts';
+      [['Trace',function(){setTrace(it);show('trace')}],['Get',function(){download(it)}],['Delete',function(){DB.del(it.id).then(function(){forget(it.id);renderGal()})}]].forEach(function(x){var b=document.createElement('button');b.className='btn';b.textContent=x[0];b.onclick=x[1];a.appendChild(b)});
+      f.appendChild(a);box.appendChild(f)});
+  }).catch(function(){box.innerHTML='<p class="empty">This browser can’t keep a gallery. Use Download to keep pictures.</p>'});
+}
+
+/* ---------- trace source ---------- */
+var traceItem=null;
+function traceSrc(){return traceItem?blobUrl(traceItem):''}
+function setTrace(item,persist){traceItem=item;$('srcThumb').src=traceSrc();
+  if(persist!==false&&item&&item.blob)DB.put({id:'_trace',t:Date.now(),p:item.p||'',blob:item.blob}).catch(function(){});
+  else if(persist!==false&&item)save('traceUrl',item.u||null)}
+$('pickBtn').onclick=function(){$('pick').value='';$('pick').click()};
+$('pick').onchange=function(e){var f=e.target.files[0];if(!f)return;setTrace({id:'pick'+Date.now(),t:Date.now(),p:f.name,blob:f});toast('Picture ready to trace')};
+$('useLast').onclick=function(){
+  if(current){setTrace(current);return}
+  var id=load('lastId',null);if(!id){show('create');$('prompt').focus();return}
+  DB.get(id).then(function(it){if(it)setTrace(it);else{show('create');$('prompt').focus()}}).catch(function(){})};
+
+/* ---------- stage ---------- */
+var ov=$('ov'),stage=$('stage'),stream=null,facing='environment',wake=null,mode='cam';
+var T={x:0,y:0,s:1,r:0},flip=false,locked=false,outline=false,white=false,lineUrl=null,baseW=0;
+function applyT(){ov.style.transform='translate(-50%,-50%) translate('+T.x+'px,'+T.y+'px) rotate('+T.r+'deg) scale('+(flip?-T.s:T.s)+','+T.s+')';ov.style.opacity=$('opac').value/100}
+function setOvSrc(){ov.src=outline&&lineUrl?lineUrl:traceSrc();ov.style.filter=outline&&!lineUrl?(white?'grayscale(1) contrast(4) invert(1)':'grayscale(1) contrast(4)'):'none'}
+function msg(text,acts){var m=$('msg');$('msgText').textContent=text;var r=$('msgActs');r.innerHTML='';(acts||[]).forEach(function(a){var b=document.createElement('button');b.className='btn'+(a[2]?' primary':'');b.textContent=a[0];b.onclick=a[1];r.appendChild(b)});m.classList.add('on')}
+function hideMsg(){$('msg').classList.remove('on')}
+function openStage(m){
+  if(!traceSrc()){toast('Pick a picture first');$('pickBtn').focus();return}
+  mode=m;stage.classList.add('on');stage.classList.toggle('light',m==='light');$('cam').style.display=m==='cam'?'block':'none';
+  $('sSwap').hidden=m!=='cam';$('sTorch').hidden=m!=='cam';hideMsg();
+  T={x:0,y:0,s:1,r:0};$('scale').value=100;$('rot').value=0;$('opac').value=m==='light'?100:55;lineUrl=null;outline=false;white=false;
+  $('sLine').classList.remove('on');$('sWhite').classList.remove('on');
+  ov.onload=function(){if(!baseW){baseW=Math.min(innerWidth*0.9,innerHeight*0.8*((ov.naturalWidth/ov.naturalHeight)||1))}ov.style.width=baseW+'px';applyT()};
+  baseW=0;setOvSrc();applyT();
+  if(m==='cam')startCam();
+  awake();
+  try{if(!(history.state&&history.state.stage))history.pushState({stage:1},'')}catch(e){}
+}
+function awake(){try{if(navigator.wakeLock)navigator.wakeLock.request('screen').then(function(w){wake=w}).catch(function(){})}catch(e){}}
+async function startCam(){
+  stopCam();hideMsg();
+  if(!window.isSecureContext){camFail({name:'Insecure'});return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camFail({name:'NoApi'});return}
+  var tries=[
+    {video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080}},audio:false},
+    {video:{facingMode:facing},audio:false},
+    {video:true,audio:false}];
+  var lastErr=null;
+  for(var i=0;i<tries.length;i++){
+    try{stream=await navigator.mediaDevices.getUserMedia(tries[i]);break}
+    catch(e){lastErr=e;if(e&&(e.name==='NotAllowedError'||e.name==='SecurityError'))break}
+  }
+  if(!stream){camFail(lastErr||{});return}
+  if(!stage.classList.contains('on')||mode!=='cam'){stopCam();return}
+  var v=$('cam');v.srcObject=stream;try{await v.play()}catch(e){}
+  var tr=stream.getVideoTracks()[0],caps=tr&&tr.getCapabilities?tr.getCapabilities():{};$('sTorch').hidden=!caps.torch;
+}
+function camFail(e){
+  var n=e&&e.name,t;
+  if(IN_FRAME)t='This app is open inside another app, which blocks the camera. Open Outlaw Studio in its own tab.';
+  else if(n==='NotAllowedError'||n==='SecurityError')t='Camera permission is off. Tap the icon left of the web address → Permissions → Camera → Allow. Then tap Try again.';
+  else if(n==='NotFoundError'||n==='OverconstrainedError')t='No camera was found on this device. Use Light box instead.';
+  else if(n==='NotReadableError'||n==='AbortError')t='Another app is using the camera. Close it, then tap Try again.';
+  else if(n==='Insecure')t='The camera only works on the secure site. Open https://outlaw-c.vercel.app/studio.html';
+  else if(n==='NoApi')t='This browser has no camera access. Open this page in Chrome.';
+  else t='The camera didn’t start. Tap Try again, or use Light box.';
+  var acts=[['Try again',startCam,true],['Use Light box',function(){stopCam();openStage('light')}]];
+  if(IN_FRAME)acts.unshift(['Open in own tab',function(){window.open('https://outlaw-c.vercel.app/studio.html','_blank','noopener')},true]);
+  msg(t,acts);
+}
+function stopCam(){if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}$('cam').srcObject=null;$('sTorch').classList.remove('on')}
+function closeStage(){if(!stage.classList.contains('on'))return;stage.classList.remove('on','hidebars');stopCam();hideMsg();try{if(wake)wake.release()}catch(e){}wake=null;
+  try{if(document.fullscreenElement)document.exitFullscreen()}catch(e){}}
+$('modeCam').onclick=function(){openStage('cam')};
+$('modeLight').onclick=function(){openStage('light')};
+$('sClose').onclick=function(){closeStage();try{if(history.state&&history.state.stage)history.back()}catch(e){}};
+window.addEventListener('popstate',function(){closeStage()});
+$('sLock').onclick=function(e){locked=!locked;e.currentTarget.classList.toggle('on',locked);e.currentTarget.textContent=locked?'Unlock':'Lock';$('lockTag').style.display=locked?'block':'none';['opac','scale','rot','det'].forEach(function(id){$(id).disabled=locked})};
+$('sFlip').onclick=function(e){flip=!flip;e.currentTarget.classList.toggle('on',flip);applyT()};
+$('sGrid').onclick=function(e){var g=$('grid'),on=g.style.display!=='block';g.style.display=on?'block':'none';e.currentTarget.classList.toggle('on',on)};
+$('sLine').onclick=function(e){outline=!outline;e.currentTarget.classList.toggle('on',outline);if(outline)makeLines();else setOvSrc()};
+$('sWhite').onclick=function(e){white=!white;e.currentTarget.classList.toggle('on',white);if(outline)makeLines();else setOvSrc()};
+$('det').oninput=function(){if(outline){clearTimeout(this._t);this._t=setTimeout(makeLines,120)}};
+$('sSwap').onclick=function(){facing=facing==='environment'?'user':'environment';startCam()};
+$('sTorch').onclick=function(e){if(!stream)return;var tr=stream.getVideoTracks()[0];var on=!e.currentTarget.classList.contains('on'),btn=e.currentTarget;
+  tr.applyConstraints({advanced:[{torch:on}]}).then(function(){btn.classList.toggle('on',on)}).catch(function(){toast('This camera’s light can’t be switched from here')})};
+$('sFull').onclick=function(){try{if(!document.fullscreenElement)stage.requestFullscreen().catch(function(){});else document.exitFullscreen()}catch(e){}};
+$('sHide').onclick=function(){stage.classList.add('hidebars')};
+$('showBtn').onclick=function(){stage.classList.remove('hidebars')};
+$('opac').oninput=applyT;
+$('scale').oninput=function(){T.s=this.value/100;applyT()};
+$('rot').oninput=function(){T.r=+this.value;applyT()};
+
+/* outline: Sobel edges on a canvas; falls back to a CSS filter when the picture can't be read */
+function makeLines(){
+  var im=new Image();im.crossOrigin='anonymous';
+  im.onload=function(){try{
+    var s=Math.min(1,1000/Math.max(im.width,im.height)),w=Math.max(3,Math.round(im.width*s)),h=Math.max(3,Math.round(im.height*s));
+    var c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');x.drawImage(im,0,0,w,h);
+    var d=x.getImageData(0,0,w,h),p=d.data,g=new Float32Array(w*h),i,j;
+    for(i=0;i<w*h;i++)g[i]=p[i*4]*.299+p[i*4+1]*.587+p[i*4+2]*.114;
+    var thr=(100-$('det').value)*1.6,out=x.createImageData(w,h),o=out.data,lc=white?255:0;
+    for(j=1;j<h-1;j++)for(i=1;i<w-1;i++){var k=j*w+i;
+      var gx=-g[k-w-1]-2*g[k-1]-g[k+w-1]+g[k-w+1]+2*g[k+1]+g[k+w+1];
+      var gy=-g[k-w-1]-2*g[k-w]-g[k-w+1]+g[k+w-1]+2*g[k+w]+g[k+w+1];
+      if(Math.sqrt(gx*gx+gy*gy)>thr){o[k*4]=o[k*4+1]=o[k*4+2]=lc;o[k*4+3]=255}}
+    x.putImageData(out,0,0);lineUrl=c.toDataURL('image/png');setOvSrc();
+  }catch(e){lineUrl=null;setOvSrc()}};
+  im.onerror=function(){lineUrl=null;setOvSrc()};
+  im.src=traceSrc();
+}
+
+/* touch: one finger drags, two fingers pinch and twist */
+var pts=new Map(),start=null;
+function geo(){var a=Array.from(pts.values());if(a.length>=2){var p=a[0],q=a[1];return{n:2,cx:(p.x+q.x)/2,cy:(p.y+q.y)/2,d:Math.hypot(q.x-p.x,q.y-p.y)||1,a:Math.atan2(q.y-p.y,q.x-p.x)*180/Math.PI}}return{n:1,cx:a[0]?a[0].x:0,cy:a[0]?a[0].y:0}}
+function snap(){return{x:T.x,y:T.y,s:T.s,r:T.r,g:geo()}}
+stage.addEventListener('pointerdown',function(e){if(locked||e.target.closest('.tbar,#msg,#showBtn'))return;try{stage.setPointerCapture(e.pointerId)}catch(x){}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});start=snap()});
+stage.addEventListener('pointermove',function(e){if(!pts.has(e.pointerId)||locked||!start)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});var g=geo();
+  if(g.n!==start.g.n){start=snap();return}
+  T.x=start.x+(g.cx-start.g.cx);T.y=start.y+(g.cy-start.g.cy);
+  if(g.n===2){T.s=Math.max(.1,Math.min(4,start.s*g.d/start.g.d));T.r=start.r+(g.a-start.g.a);$('scale').value=Math.round(T.s*100);$('rot').value=Math.max(-180,Math.min(180,Math.round(((T.r+180)%360+360)%360-180)))}
+  applyT()});
+function up(e){pts.delete(e.pointerId);start=pts.size?snap():null}
+stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
+stage.addEventListener('wheel',function(e){if(locked)return;e.preventDefault();T.s=Math.max(.1,Math.min(4,T.s*(e.deltaY<0?1.06:.94)));$('scale').value=Math.round(T.s*100);applyT()},{passive:false});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&stage.classList.contains('on'))$('sClose').click()});
+document.addEventListener('visibilitychange',function(){if(!stage.classList.contains('on'))return;
+  if(document.visibilityState==='visible'){awake();if(mode==='cam'&&!stream)startCam()}});
+
+/* ---------- install + boot ---------- */
+var deferred=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;$('installBar').hidden=false});
+$('installBtn').onclick=function(){if(!deferred)return;deferred.prompt();deferred.userChoice.finally(function(){deferred=null;$('installBar').hidden=true})};
+if(!IN_FRAME&&'serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(function(){})}
+
+var lastId=load('lastId',null);
+if(lastId)DB.get(lastId).then(function(it){if(it&&!current){current=it;showPic(it)}}).catch(function(){});
+DB.get('_trace').then(function(it){if(it)setTrace(it,false);else{var u=load('traceUrl',null);if(u)setTrace({id:'_url',u:u},false);else if(lastId)DB.get(lastId).then(function(x){if(x)setTrace(x,false)})}}).catch(function(){});
+if(/[?#&](trace)\b/.test(location.search+location.hash))show('trace');
+})();
+</script>
+</body></html>
