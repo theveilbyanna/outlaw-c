@@ -151,6 +151,7 @@ details.key ol b{color:var(--bone)}
     <div class="field"><label for="model">Picture engine</label><select id="model">
       <option value="flux">Flux · best (free)</option>
       <option value="turbo">Turbo · fastest</option>
+      <option value="puter">Backup · Puter (free account)</option>
     </select></div>
   </div>
   <div class="row"><button class="btn primary big grow" id="make">Make it free</button><button class="btn big" id="again">New version</button></div>
@@ -164,8 +165,8 @@ details.key ol b{color:var(--bone)}
   <p class="hint">Every picture you make saves to your Gallery on this phone automatically.</p>
 
   <details class="key" id="keyBox">
-    <summary><span>Steadier pictures: free picture key</span><span class="pill" id="keyPill">no key</span></summary>
-    <p class="hint" style="margin-bottom:10px">Pictures come from Pollinations. Without a key you get their old no-key service, which is slow and sometimes down. A free key uses their new service. Flux pictures stay free.</p>
+    <summary><span>Optional picture key (skip it if you like)</span><span class="pill" id="keyPill">no key</span></summary>
+    <p class="hint" style="margin-bottom:10px">You don’t need this. Pictures work without a key, and if the no-key service is busy, the Backup engine takes over. A Pollinations key only makes Flux pictures a little steadier.</p>
     <ol>
       <li>Open <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">enter.pollinations.ai</a> and sign in.</li>
       <li>Create a new key and pick the <b>publishable</b> kind. It starts with <b>pk_</b>.</li>
@@ -275,6 +276,7 @@ keyUI();
 
 /* ---------- create ---------- */
 var seed=Math.floor(Math.random()*1e9),lastAnon=0,busy=false,current=null;
+$('model').addEventListener('change',function(){if($('model').value==='puter')loadPuter().catch(function(){})});
 ['prompt','style','shape','model'].forEach(function(id){var v=load('f_'+id,null);if(v!=null)$(id).value=v;$(id).addEventListener('change',function(){save('f_'+id,$(id).value)})});
 function fullPrompt(){var s=$('style').value;return $('prompt').value.trim()+(s?', '+s:'')}
 function sources(){
@@ -303,6 +305,7 @@ async function waitAnon(){var w=16000-(Date.now()-lastAnon);while(w>0){status('T
 async function make(){
   if(busy)return;
   if(!$('prompt').value.trim()){$('prompt').focus();return}
+  if($('model').value==='puter'){makePuter();return}
   busy=true;$('make').disabled=true;$('again').disabled=true;$('resActs').hidden=true;
   $('result').innerHTML='<p>Painting… 5 to 40 seconds.</p>';
   var list=sources(),got=null,used=null,errs=[];
@@ -318,20 +321,56 @@ async function make(){
   if(!got){fail(errs);return}
   var item={id:'p'+Date.now(),t:Date.now(),p:fullPrompt(),u:used.u.replace(/&key=[^&]*/,''),blob:got.blob||null};
   if(!item.blob)item.u=used.u;
+  finish(item);
+}
+function finish(item){
   showPic(item);status(item.blob?'Done. It’s in your Gallery too.':'Done. (This one can’t be saved inside the app, tap Download to open it.)','good');
   current=item;save('lastId',item.id);
   DB.put(item).catch(function(){});
+}
+/* backup engine: Puter. No key; the first time it asks you to sign in or continue with a free Puter account. */
+function loadPuter(){if(window.puter&&window.puter.ai)return Promise.resolve(window.puter);if(loadPuter.p)return loadPuter.p;
+  loadPuter.p=new Promise(function(res,rej){var sc=document.createElement('script');sc.src='https://js.puter.com/v2/';
+    sc.onload=function(){if(window.puter&&window.puter.ai)res(window.puter);else{loadPuter.p=null;rej(new Error('Backup engine didn’t load.'))}};
+    sc.onerror=function(){loadPuter.p=null;rej(new Error('Backup engine didn’t load. Check your connection.'))};document.head.appendChild(sc)});
+  return loadPuter.p}
+function puterMsg(e){var m=e&&(e.message||(e.error&&(e.error.message||e.error))||(typeof e==='string'?e:''));m=String(m||'');
+  if(/insufficient|funds|credit|allowance|limit|quota|subscription/i.test(m))return 'The backup engine’s free monthly allowance is used up. Use Flux again, or Copy prompt + open Gemini.';
+  if(/cancel|closed|denied|auth|sign/i.test(m))return 'The backup engine needs you to sign in or tap Continue in its window. Tap Try backup engine again.';
+  return 'The backup engine didn’t make a picture'+(m?' ('+m.slice(0,120)+')':'')+'. Try again in a minute.'}
+async function makePuter(){
+  if(busy)return;
+  if(!$('prompt').value.trim()){$('prompt').focus();return}
+  busy=true;$('make').disabled=true;$('again').disabled=true;$('resActs').hidden=true;
+  $('result').innerHTML='<p>Painting with the backup engine… 10 to 60 seconds.</p>';
+  status('First time only: a Puter window may ask you to sign in or continue. Tap Continue (it’s free).');
+  var item=null,errMsg='';
+  try{
+    var P=await loadPuter(),el=null;
+    try{el=await P.ai.txt2img(fullPrompt(),{model:'black-forest-labs/flux-schnell'})}
+    catch(e1){if(/model/i.test(String((e1&&(e1.message||(e1.error&&e1.error.message)))||'')))el=await P.ai.txt2img(fullPrompt());else throw e1}
+    var src=el&&(el.currentSrc||el.src||(typeof el==='string'?el:''));
+    if(!src)throw new Error('no picture came back');
+    var blob=null;try{var r=await fetch(src);if(r.ok){var b=await r.blob();if(b&&b.size>500&&/^image\//.test(b.type||'image/'))blob=b}}catch(e){}
+    item={id:'p'+Date.now(),t:Date.now(),p:fullPrompt(),u:blob?'':src,blob:blob};
+  }catch(e){errMsg=puterMsg(e)}
+  busy=false;$('make').disabled=false;$('again').disabled=false;
+  if(item){finish(item);return}
+  $('result').innerHTML='';var p=document.createElement('p');p.className='status err';p.textContent=errMsg;$('result').appendChild(p);status('');
+  $('resActs').hidden=false;$('toTrace').hidden=true;$('dl').hidden=true;
 }
 function fail(errs){
   var key=getKey(),codes=errs.map(function(x){return x.code});
   var m;
   if(key&&codes.some(function(c){return c===401||c===403}))m='Your picture key was turned down. Copy it again from enter.pollinations.ai (the one starting with pk_) and save it below.';
   else if(codes.indexOf(402)>-1)m='Your picture key is out of free credit for that engine. Pick Flux, which is free, and try again.';
-  else if(!key)m='The free no-key picture service is busy or down right now. Add a free picture key below (two minutes, makes pictures steadier), tap New version in a minute, or use Copy prompt + open Gemini.';
-  else m='Pictures didn’t come through this time. Tap New version in a minute, or use Copy prompt + open Gemini.';
-  $('result').innerHTML='';var p=document.createElement('p');p.className='status err';p.textContent=m;$('result').appendChild(p);status('');
+  else m='The free picture service is busy right now. Tap Try backup engine, or New version in a minute.';
+  $('result').innerHTML='';var box=document.createElement('div');box.style.cssText='display:grid;gap:12px;justify-items:center;padding:20px;text-align:center';
+  var p=document.createElement('p');p.className='status err';p.style.padding='0';p.textContent=m;box.appendChild(p);
+  var b=document.createElement('button');b.className='btn primary';b.textContent='Try backup engine';b.onclick=makePuter;box.appendChild(b);
+  $('result').appendChild(box);status('');
   $('resActs').hidden=false;$('toTrace').hidden=true;$('dl').hidden=true;
-  if(!key)$('keyBox').open=true;
+  loadPuter().catch(function(){});
 }
 function showPic(item){var box=$('result');box.innerHTML='';var im=new Image();im.alt=item.p||'AI picture';im.src=blobUrl(item);box.appendChild(im);
   $('resActs').hidden=false;$('toTrace').hidden=false;$('dl').hidden=false}
